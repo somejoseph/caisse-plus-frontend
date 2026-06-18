@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VentesRouteImport } from './routes/ventes'
 import { Route as StockRouteImport } from './routes/stock'
+import { Route as ServeursRouteImport } from './routes/serveurs'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as CaisseRouteImport } from './routes/caisse'
 import { Route as IndexRouteImport } from './routes/index'
@@ -23,6 +24,11 @@ const VentesRoute = VentesRouteImport.update({
 const StockRoute = StockRouteImport.update({
   id: '/stock',
   path: '/stock',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ServeursRoute = ServeursRouteImport.update({
+  id: '/serveurs',
+  path: '/serveurs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JournalRoute = JournalRouteImport.update({
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/caisse': typeof CaisseRoute
   '/journal': typeof JournalRoute
+  '/serveurs': typeof ServeursRoute
   '/stock': typeof StockRoute
   '/ventes': typeof VentesRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/caisse': typeof CaisseRoute
   '/journal': typeof JournalRoute
+  '/serveurs': typeof ServeursRoute
   '/stock': typeof StockRoute
   '/ventes': typeof VentesRoute
 }
@@ -60,21 +68,30 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/caisse': typeof CaisseRoute
   '/journal': typeof JournalRoute
+  '/serveurs': typeof ServeursRoute
   '/stock': typeof StockRoute
   '/ventes': typeof VentesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/caisse' | '/journal' | '/stock' | '/ventes'
+  fullPaths: '/' | '/caisse' | '/journal' | '/serveurs' | '/stock' | '/ventes'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/caisse' | '/journal' | '/stock' | '/ventes'
-  id: '__root__' | '/' | '/caisse' | '/journal' | '/stock' | '/ventes'
+  to: '/' | '/caisse' | '/journal' | '/serveurs' | '/stock' | '/ventes'
+  id:
+    | '__root__'
+    | '/'
+    | '/caisse'
+    | '/journal'
+    | '/serveurs'
+    | '/stock'
+    | '/ventes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CaisseRoute: typeof CaisseRoute
   JournalRoute: typeof JournalRoute
+  ServeursRoute: typeof ServeursRoute
   StockRoute: typeof StockRoute
   VentesRoute: typeof VentesRoute
 }
@@ -93,6 +110,13 @@ declare module '@tanstack/react-router' {
       path: '/stock'
       fullPath: '/stock'
       preLoaderRoute: typeof StockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/serveurs': {
+      id: '/serveurs'
+      path: '/serveurs'
+      fullPath: '/serveurs'
+      preLoaderRoute: typeof ServeursRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/journal': {
@@ -123,6 +147,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CaisseRoute: CaisseRoute,
   JournalRoute: JournalRoute,
+  ServeursRoute: ServeursRoute,
   StockRoute: StockRoute,
   VentesRoute: VentesRoute,
 }
