@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VentesRouteImport } from './routes/ventes'
+import { Route as StockRouteImport } from './routes/stock'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as CaisseRouteImport } from './routes/caisse'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,6 +18,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const VentesRoute = VentesRouteImport.update({
   id: '/ventes',
   path: '/ventes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StockRoute = StockRouteImport.update({
+  id: '/stock',
+  path: '/stock',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JournalRoute = JournalRouteImport.update({
@@ -39,12 +45,14 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/caisse': typeof CaisseRoute
   '/journal': typeof JournalRoute
+  '/stock': typeof StockRoute
   '/ventes': typeof VentesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/caisse': typeof CaisseRoute
   '/journal': typeof JournalRoute
+  '/stock': typeof StockRoute
   '/ventes': typeof VentesRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,22 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/caisse': typeof CaisseRoute
   '/journal': typeof JournalRoute
+  '/stock': typeof StockRoute
   '/ventes': typeof VentesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/caisse' | '/journal' | '/ventes'
+  fullPaths: '/' | '/caisse' | '/journal' | '/stock' | '/ventes'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/caisse' | '/journal' | '/ventes'
-  id: '__root__' | '/' | '/caisse' | '/journal' | '/ventes'
+  to: '/' | '/caisse' | '/journal' | '/stock' | '/ventes'
+  id: '__root__' | '/' | '/caisse' | '/journal' | '/stock' | '/ventes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CaisseRoute: typeof CaisseRoute
   JournalRoute: typeof JournalRoute
+  StockRoute: typeof StockRoute
   VentesRoute: typeof VentesRoute
 }
 
@@ -76,6 +86,13 @@ declare module '@tanstack/react-router' {
       path: '/ventes'
       fullPath: '/ventes'
       preLoaderRoute: typeof VentesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stock': {
+      id: '/stock'
+      path: '/stock'
+      fullPath: '/stock'
+      preLoaderRoute: typeof StockRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/journal': {
@@ -106,6 +123,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CaisseRoute: CaisseRoute,
   JournalRoute: JournalRoute,
+  StockRoute: StockRoute,
   VentesRoute: VentesRoute,
 }
 export const routeTree = rootRouteImport
