@@ -76,20 +76,30 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1" },
+      { name: "theme-color", content: "#0F9D6A" },
+      { title: "Caisse+ — Gestion pour maquis, bars & dépôts" },
+      {
+        name: "description",
+        content:
+          "Caisse+ : caisse, stock, ventes et rapports en temps réel pour maquis, bars, caves et dépôts de boissons en Afrique de l'Ouest.",
+      },
+      { name: "author", content: "Sohapigroup" },
+      { property: "og:title", content: "Caisse+ — Gestion pour maquis & bars" },
+      {
+        property: "og:description",
+        content: "La caisse intelligente du maquis : ventes, stock et bénéfices sous contrôle, même à distance.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: appCss,
+        href: "https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap",
       },
     ],
   }),
