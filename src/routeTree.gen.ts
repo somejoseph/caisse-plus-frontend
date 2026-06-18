@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VentesRouteImport } from './routes/ventes'
+import { Route as CaisseRouteImport } from './routes/caisse'
 import { Route as IndexRouteImport } from './routes/index'
 
 const VentesRoute = VentesRouteImport.update({
   id: '/ventes',
   path: '/ventes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CaisseRoute = CaisseRouteImport.update({
+  id: '/caisse',
+  path: '/caisse',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -25,27 +31,31 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/caisse': typeof CaisseRoute
   '/ventes': typeof VentesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/caisse': typeof CaisseRoute
   '/ventes': typeof VentesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/caisse': typeof CaisseRoute
   '/ventes': typeof VentesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/ventes'
+  fullPaths: '/' | '/caisse' | '/ventes'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/ventes'
-  id: '__root__' | '/' | '/ventes'
+  to: '/' | '/caisse' | '/ventes'
+  id: '__root__' | '/' | '/caisse' | '/ventes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CaisseRoute: typeof CaisseRoute
   VentesRoute: typeof VentesRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/ventes'
       fullPath: '/ventes'
       preLoaderRoute: typeof VentesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/caisse': {
+      id: '/caisse'
+      path: '/caisse'
+      fullPath: '/caisse'
+      preLoaderRoute: typeof CaisseRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CaisseRoute: CaisseRoute,
   VentesRoute: VentesRoute,
 }
 export const routeTree = rootRouteImport
