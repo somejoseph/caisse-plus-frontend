@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VentesRouteImport } from './routes/ventes'
 import { Route as StockRouteImport } from './routes/stock'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ServeursRouteImport } from './routes/serveurs'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as CaisseRouteImport } from './routes/caisse'
@@ -24,6 +25,11 @@ const VentesRoute = VentesRouteImport.update({
 const StockRoute = StockRouteImport.update({
   id: '/stock',
   path: '/stock',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ServeursRoute = ServeursRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/caisse': typeof CaisseRoute
   '/journal': typeof JournalRoute
   '/serveurs': typeof ServeursRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
   '/ventes': typeof VentesRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/caisse': typeof CaisseRoute
   '/journal': typeof JournalRoute
   '/serveurs': typeof ServeursRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
   '/ventes': typeof VentesRoute
 }
@@ -69,20 +77,36 @@ export interface FileRoutesById {
   '/caisse': typeof CaisseRoute
   '/journal': typeof JournalRoute
   '/serveurs': typeof ServeursRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
   '/ventes': typeof VentesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/caisse' | '/journal' | '/serveurs' | '/stock' | '/ventes'
+  fullPaths:
+    | '/'
+    | '/caisse'
+    | '/journal'
+    | '/serveurs'
+    | '/sitemap.xml'
+    | '/stock'
+    | '/ventes'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/caisse' | '/journal' | '/serveurs' | '/stock' | '/ventes'
+  to:
+    | '/'
+    | '/caisse'
+    | '/journal'
+    | '/serveurs'
+    | '/sitemap.xml'
+    | '/stock'
+    | '/ventes'
   id:
     | '__root__'
     | '/'
     | '/caisse'
     | '/journal'
     | '/serveurs'
+    | '/sitemap.xml'
     | '/stock'
     | '/ventes'
   fileRoutesById: FileRoutesById
@@ -92,6 +116,7 @@ export interface RootRouteChildren {
   CaisseRoute: typeof CaisseRoute
   JournalRoute: typeof JournalRoute
   ServeursRoute: typeof ServeursRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StockRoute: typeof StockRoute
   VentesRoute: typeof VentesRoute
 }
@@ -110,6 +135,13 @@ declare module '@tanstack/react-router' {
       path: '/stock'
       fullPath: '/stock'
       preLoaderRoute: typeof StockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/serveurs': {
@@ -148,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   CaisseRoute: CaisseRoute,
   JournalRoute: JournalRoute,
   ServeursRoute: ServeursRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   StockRoute: StockRoute,
   VentesRoute: VentesRoute,
 }
