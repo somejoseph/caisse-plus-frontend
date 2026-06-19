@@ -15,6 +15,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ServeursRouteImport } from './routes/serveurs'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as JournalRouteImport } from './routes/journal'
+import { Route as ConnexionRouteImport } from './routes/connexion'
 import { Route as CaisseRouteImport } from './routes/caisse'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -48,6 +49,11 @@ const JournalRoute = JournalRouteImport.update({
   path: '/journal',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConnexionRoute = ConnexionRouteImport.update({
+  id: '/connexion',
+  path: '/connexion',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CaisseRoute = CaisseRouteImport.update({
   id: '/caisse',
   path: '/caisse',
@@ -62,6 +68,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/caisse': typeof CaisseRoute
+  '/connexion': typeof ConnexionRoute
   '/journal': typeof JournalRoute
   '/notifications': typeof NotificationsRoute
   '/serveurs': typeof ServeursRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/caisse': typeof CaisseRoute
+  '/connexion': typeof ConnexionRoute
   '/journal': typeof JournalRoute
   '/notifications': typeof NotificationsRoute
   '/serveurs': typeof ServeursRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/caisse': typeof CaisseRoute
+  '/connexion': typeof ConnexionRoute
   '/journal': typeof JournalRoute
   '/notifications': typeof NotificationsRoute
   '/serveurs': typeof ServeursRoute
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/caisse'
+    | '/connexion'
     | '/journal'
     | '/notifications'
     | '/serveurs'
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/caisse'
+    | '/connexion'
     | '/journal'
     | '/notifications'
     | '/serveurs'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/caisse'
+    | '/connexion'
     | '/journal'
     | '/notifications'
     | '/serveurs'
@@ -126,6 +138,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CaisseRoute: typeof CaisseRoute
+  ConnexionRoute: typeof ConnexionRoute
   JournalRoute: typeof JournalRoute
   NotificationsRoute: typeof NotificationsRoute
   ServeursRoute: typeof ServeursRoute
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/connexion': {
+      id: '/connexion'
+      path: '/connexion'
+      fullPath: '/connexion'
+      preLoaderRoute: typeof ConnexionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/caisse': {
       id: '/caisse'
       path: '/caisse'
@@ -198,6 +218,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CaisseRoute: CaisseRoute,
+  ConnexionRoute: ConnexionRoute,
   JournalRoute: JournalRoute,
   NotificationsRoute: NotificationsRoute,
   ServeursRoute: ServeursRoute,
