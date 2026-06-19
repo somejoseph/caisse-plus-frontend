@@ -13,6 +13,7 @@ import { Route as VentesRouteImport } from './routes/ventes'
 import { Route as StockRouteImport } from './routes/stock'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ServeursRouteImport } from './routes/serveurs'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as CaisseRouteImport } from './routes/caisse'
 import { Route as IndexRouteImport } from './routes/index'
@@ -37,6 +38,11 @@ const ServeursRoute = ServeursRouteImport.update({
   path: '/serveurs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JournalRoute = JournalRouteImport.update({
   id: '/journal',
   path: '/journal',
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/caisse': typeof CaisseRoute
   '/journal': typeof JournalRoute
+  '/notifications': typeof NotificationsRoute
   '/serveurs': typeof ServeursRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/caisse': typeof CaisseRoute
   '/journal': typeof JournalRoute
+  '/notifications': typeof NotificationsRoute
   '/serveurs': typeof ServeursRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/caisse': typeof CaisseRoute
   '/journal': typeof JournalRoute
+  '/notifications': typeof NotificationsRoute
   '/serveurs': typeof ServeursRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/caisse'
     | '/journal'
+    | '/notifications'
     | '/serveurs'
     | '/sitemap.xml'
     | '/stock'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/caisse'
     | '/journal'
+    | '/notifications'
     | '/serveurs'
     | '/sitemap.xml'
     | '/stock'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/caisse'
     | '/journal'
+    | '/notifications'
     | '/serveurs'
     | '/sitemap.xml'
     | '/stock'
@@ -115,6 +127,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CaisseRoute: typeof CaisseRoute
   JournalRoute: typeof JournalRoute
+  NotificationsRoute: typeof NotificationsRoute
   ServeursRoute: typeof ServeursRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StockRoute: typeof StockRoute
@@ -151,6 +164,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ServeursRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/journal': {
       id: '/journal'
       path: '/journal'
@@ -179,6 +199,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CaisseRoute: CaisseRoute,
   JournalRoute: JournalRoute,
+  NotificationsRoute: NotificationsRoute,
   ServeursRoute: ServeursRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StockRoute: StockRoute,
