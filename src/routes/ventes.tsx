@@ -43,7 +43,7 @@ function Ventes() {
     });
 
   const cartLines = Object.entries(cart)
-    .map(([id, qty]) => ({ drink: DRINKS.find((d) => d.id === id)!, qty }))
+    .map(([id, qty]) => ({ drink: drinks.find((d) => d.id === id)!, qty }))
     .filter((l) => l.drink);
   const total = cartLines.reduce((s, l) => s + l.drink.price * l.qty, 0);
   const count = cartLines.reduce((s, l) => s + l.qty, 0);
