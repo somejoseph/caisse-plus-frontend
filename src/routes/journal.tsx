@@ -121,7 +121,7 @@ function Journal() {
             <SectionTitle title="Historique des ventes" noMargin />
           </div>
           <div className="space-y-2">
-            {RECENT_SALES.map((s) => (
+            {sales.map((s) => (
               <div key={s.id} className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
                 <div>
                   <p className="text-sm font-semibold text-foreground">{s.id} · {s.table}</p>
