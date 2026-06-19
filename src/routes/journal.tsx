@@ -3,7 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { TrendingUp, Trophy, Clock } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { cn } from "@/lib/utils";
-import { fcfa, RECENT_SALES, DRINKS, WEEK_SALES } from "@/lib/mock-data";
+import { fcfa, WEEK_SALES } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 import { SectionTitle, MethodBadge } from "./index";
 
 export const Route = createFileRoute("/journal")({
