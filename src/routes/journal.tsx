@@ -21,8 +21,9 @@ const periods = ["Jour", "Semaine", "Mois"] as const;
 
 function Journal() {
   const [period, setPeriod] = useState<(typeof periods)[number]>("Jour");
+  const { drinks, sales } = useStore();
 
-  const topDrinks = [...DRINKS]
+  const topDrinks = [...drinks]
     .map((d) => ({ ...d, margin: d.price - d.cost }))
     .sort((a, b) => b.margin - a.margin)
     .slice(0, 5);
