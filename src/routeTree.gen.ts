@@ -17,6 +17,7 @@ import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as ConnexionRouteImport } from './routes/connexion'
 import { Route as CaisseRouteImport } from './routes/caisse'
+import { Route as ApprovisionnementRouteImport } from './routes/approvisionnement'
 import { Route as IndexRouteImport } from './routes/index'
 
 const VentesRoute = VentesRouteImport.update({
@@ -59,6 +60,11 @@ const CaisseRoute = CaisseRouteImport.update({
   path: '/caisse',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApprovisionnementRoute = ApprovisionnementRouteImport.update({
+  id: '/approvisionnement',
+  path: '/approvisionnement',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -67,6 +73,7 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/approvisionnement': typeof ApprovisionnementRoute
   '/caisse': typeof CaisseRoute
   '/connexion': typeof ConnexionRoute
   '/journal': typeof JournalRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/approvisionnement': typeof ApprovisionnementRoute
   '/caisse': typeof CaisseRoute
   '/connexion': typeof ConnexionRoute
   '/journal': typeof JournalRoute
@@ -90,6 +98,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/approvisionnement': typeof ApprovisionnementRoute
   '/caisse': typeof CaisseRoute
   '/connexion': typeof ConnexionRoute
   '/journal': typeof JournalRoute
@@ -103,6 +112,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/approvisionnement'
     | '/caisse'
     | '/connexion'
     | '/journal'
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/approvisionnement'
     | '/caisse'
     | '/connexion'
     | '/journal'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/approvisionnement'
     | '/caisse'
     | '/connexion'
     | '/journal'
@@ -137,6 +149,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApprovisionnementRoute: typeof ApprovisionnementRoute
   CaisseRoute: typeof CaisseRoute
   ConnexionRoute: typeof ConnexionRoute
   JournalRoute: typeof JournalRoute
@@ -205,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CaisseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/approvisionnement': {
+      id: '/approvisionnement'
+      path: '/approvisionnement'
+      fullPath: '/approvisionnement'
+      preLoaderRoute: typeof ApprovisionnementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -217,6 +237,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApprovisionnementRoute: ApprovisionnementRoute,
   CaisseRoute: CaisseRoute,
   ConnexionRoute: ConnexionRoute,
   JournalRoute: JournalRoute,
