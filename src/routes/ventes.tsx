@@ -212,6 +212,8 @@ const methods = ["Espèces", "Mobile Money", "Crédit"] as const;
 function CheckoutSheet({
   lines,
   total,
+  tables,
+  servers,
   onClose,
   onAdd,
   onRemove,
@@ -219,12 +221,16 @@ function CheckoutSheet({
 }: {
   lines: { drink: Drink; qty: number }[];
   total: number;
+  tables: string[];
+  servers: string[];
   onClose: () => void;
   onAdd: (id: string) => void;
   onRemove: (id: string) => void;
-  onConfirm: () => void;
+  onConfirm: (table: string, server: string, method: (typeof methods)[number]) => void;
 }) {
   const [method, setMethod] = useState<(typeof methods)[number]>("Espèces");
+  const [table, setTable] = useState(tables[0] ?? "Comptoir");
+  const [server, setServer] = useState(servers[0] ?? "—");
   const [given, setGiven] = useState("");
   const givenNum = parseInt(given || "0", 10);
   const change = givenNum - total;
