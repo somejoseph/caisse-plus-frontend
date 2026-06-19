@@ -134,6 +134,8 @@ function Stock() {
           })}
         </div>
       </div>
+
+      <AddDrinkSheet open={addOpen} onClose={() => setAddOpen(false)} />
     </AppLayout>
   );
 }
