@@ -270,7 +270,40 @@ function CheckoutSheet({
           ))}
         </div>
 
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Table</span>
+            <select
+              value={table}
+              onChange={(e) => setTable(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+            >
+              <option value="Comptoir">Comptoir</option>
+              {tables.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Serveur</span>
+            <select
+              value={server}
+              onChange={(e) => setServer(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+            >
+              {servers.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <div className="mt-4">
+
           <p className="mb-2 text-xs font-semibold text-muted-foreground">Moyen de paiement</p>
           <div className="grid grid-cols-3 gap-2">
             {methods.map((m) => (
