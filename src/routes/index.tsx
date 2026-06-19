@@ -13,7 +13,8 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
-import { fcfa, WEEK_SALES, RECENT_SALES, DRINKS } from "@/lib/mock-data";
+import { fcfa, WEEK_SALES } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -29,7 +30,7 @@ const quickActions = [
   { label: "Nouvelle vente", icon: PlusCircle, to: "/ventes", tone: "primary" },
   { label: "Voir le stock", icon: PackageSearch, to: "/stock", tone: "soft" },
   { label: "Dépense caisse", icon: Receipt, to: "/caisse", tone: "soft" },
-  { label: "QR menu", icon: QrCode, to: "/", tone: "soft" },
+  { label: "QR menu", icon: QrCode, to: "/qr-menu", tone: "soft" },
 ];
 
 function Home() {
