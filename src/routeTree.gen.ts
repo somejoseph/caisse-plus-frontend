@@ -13,6 +13,7 @@ import { Route as VentesRouteImport } from './routes/ventes'
 import { Route as StockRouteImport } from './routes/stock'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ServeursRouteImport } from './routes/serveurs'
+import { Route as QrMenuRouteImport } from './routes/qr-menu'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as InventaireRouteImport } from './routes/inventaire'
@@ -40,6 +41,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const ServeursRoute = ServeursRouteImport.update({
   id: '/serveurs',
   path: '/serveurs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QrMenuRoute = QrMenuRouteImport.update({
+  id: '/qr-menu',
+  path: '/qr-menu',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotificationsRoute = NotificationsRouteImport.update({
@@ -92,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/inventaire': typeof InventaireRoute
   '/journal': typeof JournalRoute
   '/notifications': typeof NotificationsRoute
+  '/qr-menu': typeof QrMenuRoute
   '/serveurs': typeof ServeursRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/inventaire': typeof InventaireRoute
   '/journal': typeof JournalRoute
   '/notifications': typeof NotificationsRoute
+  '/qr-menu': typeof QrMenuRoute
   '/serveurs': typeof ServeursRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/inventaire': typeof InventaireRoute
   '/journal': typeof JournalRoute
   '/notifications': typeof NotificationsRoute
+  '/qr-menu': typeof QrMenuRoute
   '/serveurs': typeof ServeursRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/inventaire'
     | '/journal'
     | '/notifications'
+    | '/qr-menu'
     | '/serveurs'
     | '/sitemap.xml'
     | '/stock'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/inventaire'
     | '/journal'
     | '/notifications'
+    | '/qr-menu'
     | '/serveurs'
     | '/sitemap.xml'
     | '/stock'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/inventaire'
     | '/journal'
     | '/notifications'
+    | '/qr-menu'
     | '/serveurs'
     | '/sitemap.xml'
     | '/stock'
@@ -180,6 +192,7 @@ export interface RootRouteChildren {
   InventaireRoute: typeof InventaireRoute
   JournalRoute: typeof JournalRoute
   NotificationsRoute: typeof NotificationsRoute
+  QrMenuRoute: typeof QrMenuRoute
   ServeursRoute: typeof ServeursRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StockRoute: typeof StockRoute
@@ -214,6 +227,13 @@ declare module '@tanstack/react-router' {
       path: '/serveurs'
       fullPath: '/serveurs'
       preLoaderRoute: typeof ServeursRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/qr-menu': {
+      id: '/qr-menu'
+      path: '/qr-menu'
+      fullPath: '/qr-menu'
+      preLoaderRoute: typeof QrMenuRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notifications': {
@@ -284,6 +304,7 @@ const rootRouteChildren: RootRouteChildren = {
   InventaireRoute: InventaireRoute,
   JournalRoute: JournalRoute,
   NotificationsRoute: NotificationsRoute,
+  QrMenuRoute: QrMenuRoute,
   ServeursRoute: ServeursRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StockRoute: StockRoute,
