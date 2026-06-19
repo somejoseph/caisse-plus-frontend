@@ -123,12 +123,15 @@ function Caisse() {
           <section>
             <div className="flex items-center justify-between">
               <SectionTitle title="Dépenses du jour" noMargin />
-              <button className="flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">
+              <button
+                onClick={() => setSheetOpen(true)}
+                className="flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground"
+              >
                 <Plus className="h-3.5 w-3.5" /> Ajouter
               </button>
             </div>
             <div className="mt-3 space-y-2">
-              {EXPENSES.map((e) => (
+              {expenses.map((e) => (
                 <div key={e.id} className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
                   <div className="flex items-center gap-3">
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 text-accent">
@@ -146,6 +149,39 @@ function Caisse() {
           </section>
         )}
       </div>
+
+      <BottomSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        title="Enregistrer une dépense"
+        subtitle="Sortie de caisse du jour"
+      >
+        <div className="space-y-3">
+          <Field label="Libellé">
+            <input value={label} onChange={(e) => setLabel(e.target.value)} className={inputClass} placeholder="Ex. Glace (sac x4)" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Catégorie">
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputClass}>
+                {["Achats", "Transport", "Salaires", "Charges", "Divers"].map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Montant (F)">
+              <input inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))} className={inputClass} placeholder="0" />
+            </Field>
+          </div>
+          <button
+            onClick={submitExpense}
+            className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99]"
+          >
+            Enregistrer la dépense
+          </button>
+        </div>
+      </BottomSheet>
     </AppLayout>
   );
 }
