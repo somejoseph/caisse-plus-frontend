@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Home,
   Wallet,
@@ -17,9 +17,14 @@ import {
   ShieldCheck,
   Building2,
   ChevronDown,
+  LogOut,
+  MapPin,
+  Hash,
+  Check,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ESTABLISHMENT, CURRENT_USER } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 
 const navItems = [
   { to: "/", label: "Accueil", icon: Home },
@@ -31,16 +36,26 @@ const drawerLinks = [
   { to: "/stock", label: "Stock & Catalogue", icon: Boxes },
   { to: "/serveurs", label: "Serveurs & Tables", icon: Users },
   { to: "/journal", label: "Journal & Rapports", icon: ScrollText },
-  { to: "#", label: "Approvisionnement", icon: Truck },
-  { to: "#", label: "Inventaire", icon: ClipboardCheck },
-  { to: "#", label: "Catalogue boissons", icon: BookOpen },
-  { to: "#", label: "QR Code menu", icon: QrCode },
-  { to: "#", label: "Anti-fraude & audit", icon: ShieldCheck },
+  { to: "/approvisionnement", label: "Approvisionnement", icon: Truck },
+  { to: "/inventaire", label: "Inventaire", icon: ClipboardCheck },
+  { to: "/catalogue", label: "Catalogue boissons", icon: BookOpen },
+  { to: "/qr-menu", label: "QR Code menu", icon: QrCode },
+  { to: "/audit", label: "Anti-fraude & audit", icon: ShieldCheck },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [estOpen, setEstOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const { establishment, user, unreadCount, logout } = useStore();
+
+  const handleLogout = () => {
+    setDrawerOpen(false);
+    logout();
+    toast.success("Déconnexion réussie", { description: "À bientôt sur Caisse+ 👋" });
+    navigate({ to: "/connexion" });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -56,19 +71,65 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Menu className="h-5 w-5" />
             </button>
 
-            <button className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-sm font-semibold">
-              <Building2 className="h-4 w-4" />
-              <span className="max-w-[140px] truncate">{ESTABLISHMENT.name}</span>
-              <ChevronDown className="h-4 w-4 opacity-80" />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setEstOpen((v) => !v)}
+                className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-sm font-semibold active:scale-95"
+              >
+                <Building2 className="h-4 w-4" />
+                <span className="max-w-[140px] truncate">{establishment.name}</span>
+                <ChevronDown className={cn("h-4 w-4 opacity-80 transition-transform", estOpen && "rotate-180")} />
+              </button>
 
-            <button
+              {estOpen && (
+                <>
+                  <button
+                    aria-label="Fermer"
+                    onClick={() => setEstOpen(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div className="absolute left-1/2 top-12 z-50 w-64 -translate-x-1/2 rounded-2xl border border-border bg-card p-4 text-foreground shadow-float">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-gradient text-primary-foreground">
+                        <Building2 className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-bold leading-tight">{establishment.name}</p>
+                        <p className="text-xs text-muted-foreground">{establishment.type}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 space-y-2 border-t border-border pt-3 text-sm">
+                      <p className="flex items-center gap-2 text-muted-foreground">
+                        <Hash className="h-4 w-4 text-primary" /> Code établissement&nbsp;
+                        <span className="font-bold text-foreground">{establishment.code}</span>
+                      </p>
+                      <p className="flex items-center gap-2 text-muted-foreground">
+                        <MapPin className="h-4 w-4 text-primary" /> {establishment.city}
+                      </p>
+                      <p className="flex items-center gap-2 text-muted-foreground">
+                        <Users className="h-4 w-4 text-primary" /> {user.name} · {user.role}
+                      </p>
+                    </div>
+                    <div className="mt-3 flex items-center gap-2 rounded-xl bg-success/10 px-3 py-2 text-xs font-semibold text-success">
+                      <Check className="h-4 w-4" /> Établissement actif
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <Link
+              to="/notifications"
               aria-label="Notifications"
               className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/15 active:scale-95"
             >
               <Bell className="h-5 w-5" />
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-secondary ring-2 ring-primary-dark" />
-            </button>
+              {unreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-secondary px-1 text-[10px] font-bold text-foreground ring-2 ring-primary-dark">
+                  {unreadCount}
+                </span>
+              )}
+            </Link>
           </div>
         </header>
 
@@ -122,46 +183,46 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </div>
               <div className="mt-5 flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 font-bold">
-                  {CURRENT_USER.initials}
+                  {user.initials}
                 </div>
                 <div>
-                  <p className="font-semibold leading-tight">{CURRENT_USER.name}</p>
+                  <p className="font-semibold leading-tight">{user.name}</p>
                   <p className="text-xs text-primary-foreground/80">
-                    {CURRENT_USER.role} · Code {ESTABLISHMENT.code}
+                    {user.role} · Code {establishment.code}
                   </p>
                 </div>
               </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-3 py-4 no-scrollbar">
-              {drawerLinks.map((link) =>
-                link.to === "#" ? (
-                  <div
-                    key={link.label}
-                    className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-muted-foreground"
-                  >
-                    <link.icon className="h-5 w-5" />
-                    {link.label}
-                  </div>
-                ) : (
-                  <Link
-                    key={link.label}
-                    to={link.to}
-                    onClick={() => setDrawerOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors",
-                      pathname === link.to
-                        ? "bg-sidebar-accent text-primary"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent",
-                    )}
-                  >
-                    <link.icon className="h-5 w-5" />
-                    {link.label}
-                  </Link>
-                ),
-              )}
+              {drawerLinks.map((link) => (
+                <Link
+                  key={link.label}
+                  to={link.to}
+                  onClick={() => setDrawerOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors",
+                    pathname === link.to
+                      ? "bg-sidebar-accent text-primary"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent",
+                  )}
+                >
+                  <link.icon className="h-5 w-5" />
+                  {link.label}
+                </Link>
+              ))}
             </div>
-            <p className="px-5 py-4 text-xs text-muted-foreground">Caisse+ v2.1 · Sohapigroup</p>
+
+            <div className="border-t border-sidebar-border px-3 py-3">
+              <button
+                onClick={handleLogout}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10"
+              >
+                <LogOut className="h-5 w-5" />
+                Déconnexion
+              </button>
+              <p className="px-2 pt-2 text-xs text-muted-foreground">Caisse+ v2.1 · Sohapigroup</p>
+            </div>
           </aside>
         </div>
       )}
