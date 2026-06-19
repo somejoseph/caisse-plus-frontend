@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus, ArrowDownLeft, ArrowUpRight, Receipt, Banknote } from "lucide-react";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
+import { BottomSheet, Field, inputClass } from "@/components/BottomSheet";
 import { cn } from "@/lib/utils";
-import { fcfa, EXPENSES, PAYMENT_BREAKDOWN } from "@/lib/mock-data";
+import { fcfa, PAYMENT_BREAKDOWN } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 import { SectionTitle } from "./index";
 
 export const Route = createFileRoute("/caisse")({

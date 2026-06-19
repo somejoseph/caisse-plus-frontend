@@ -20,6 +20,7 @@ import { Route as InventaireRouteImport } from './routes/inventaire'
 import { Route as ConnexionRouteImport } from './routes/connexion'
 import { Route as CatalogueRouteImport } from './routes/catalogue'
 import { Route as CaisseRouteImport } from './routes/caisse'
+import { Route as AuditRouteImport } from './routes/audit'
 import { Route as ApprovisionnementRouteImport } from './routes/approvisionnement'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -78,6 +79,11 @@ const CaisseRoute = CaisseRouteImport.update({
   path: '/caisse',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuditRoute = AuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApprovisionnementRoute = ApprovisionnementRouteImport.update({
   id: '/approvisionnement',
   path: '/approvisionnement',
@@ -92,6 +98,7 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/approvisionnement': typeof ApprovisionnementRoute
+  '/audit': typeof AuditRoute
   '/caisse': typeof CaisseRoute
   '/catalogue': typeof CatalogueRoute
   '/connexion': typeof ConnexionRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/approvisionnement': typeof ApprovisionnementRoute
+  '/audit': typeof AuditRoute
   '/caisse': typeof CaisseRoute
   '/catalogue': typeof CatalogueRoute
   '/connexion': typeof ConnexionRoute
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/approvisionnement': typeof ApprovisionnementRoute
+  '/audit': typeof AuditRoute
   '/caisse': typeof CaisseRoute
   '/catalogue': typeof CatalogueRoute
   '/connexion': typeof ConnexionRoute
@@ -140,6 +149,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/approvisionnement'
+    | '/audit'
     | '/caisse'
     | '/catalogue'
     | '/connexion'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/approvisionnement'
+    | '/audit'
     | '/caisse'
     | '/catalogue'
     | '/connexion'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/approvisionnement'
+    | '/audit'
     | '/caisse'
     | '/catalogue'
     | '/connexion'
@@ -186,6 +198,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApprovisionnementRoute: typeof ApprovisionnementRoute
+  AuditRoute: typeof AuditRoute
   CaisseRoute: typeof CaisseRoute
   CatalogueRoute: typeof CatalogueRoute
   ConnexionRoute: typeof ConnexionRoute
@@ -278,6 +291,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CaisseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/audit': {
+      id: '/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/approvisionnement': {
       id: '/approvisionnement'
       path: '/approvisionnement'
@@ -298,6 +318,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApprovisionnementRoute: ApprovisionnementRoute,
+  AuditRoute: AuditRoute,
   CaisseRoute: CaisseRoute,
   CatalogueRoute: CatalogueRoute,
   ConnexionRoute: ConnexionRoute,
