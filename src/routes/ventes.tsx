@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Search, Minus, Plus, ShoppingCart, X, ArrowLeft, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { cn } from "@/lib/utils";
-import { DRINKS, CATEGORIES, fcfa, type Drink } from "@/lib/mock-data";
+import { CATEGORIES, fcfa, type Drink } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/ventes")({
   head: () => ({
@@ -16,18 +18,19 @@ export const Route = createFileRoute("/ventes")({
 });
 
 function Ventes() {
+  const { drinks, servers, tables, recordSale } = useStore();
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState<string>("Toutes");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [checkout, setCheckout] = useState(false);
 
   const filtered = useMemo(() => {
-    return DRINKS.filter((d) => {
+    return drinks.filter((d) => {
       const matchCat = activeCat === "Toutes" || d.category === activeCat;
       const matchQ = d.name.toLowerCase().includes(query.toLowerCase());
       return matchCat && matchQ;
     });
-  }, [query, activeCat]);
+  }, [drinks, query, activeCat]);
 
   const add = (id: string) => setCart((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }));
   const remove = (id: string) =>
@@ -40,7 +43,7 @@ function Ventes() {
     });
 
   const cartLines = Object.entries(cart)
-    .map(([id, qty]) => ({ drink: DRINKS.find((d) => d.id === id)!, qty }))
+    .map(([id, qty]) => ({ drink: drinks.find((d) => d.id === id)!, qty }))
     .filter((l) => l.drink);
   const total = cartLines.reduce((s, l) => s + l.drink.price * l.qty, 0);
   const count = cartLines.reduce((s, l) => s + l.qty, 0);
@@ -123,10 +126,14 @@ function Ventes() {
         <CheckoutSheet
           lines={cartLines}
           total={total}
+          tables={tables.map((t) => t.name)}
+          servers={servers.filter((s) => s.active).map((s) => s.name)}
           onClose={() => setCheckout(false)}
           onAdd={add}
           onRemove={remove}
-          onConfirm={() => {
+          onConfirm={(table, server, method) => {
+            recordSale({ table, server, total, method, items: count });
+            toast.success("Vente encaissée", { description: `${fcfa(total)} · ${method}` });
             setCart({});
             setCheckout(false);
           }}
@@ -205,6 +212,8 @@ const methods = ["Espèces", "Mobile Money", "Crédit"] as const;
 function CheckoutSheet({
   lines,
   total,
+  tables,
+  servers,
   onClose,
   onAdd,
   onRemove,
@@ -212,12 +221,16 @@ function CheckoutSheet({
 }: {
   lines: { drink: Drink; qty: number }[];
   total: number;
+  tables: string[];
+  servers: string[];
   onClose: () => void;
   onAdd: (id: string) => void;
   onRemove: (id: string) => void;
-  onConfirm: () => void;
+  onConfirm: (table: string, server: string, method: (typeof methods)[number]) => void;
 }) {
   const [method, setMethod] = useState<(typeof methods)[number]>("Espèces");
+  const [table, setTable] = useState(tables[0] ?? "Comptoir");
+  const [server, setServer] = useState(servers[0] ?? "—");
   const [given, setGiven] = useState("");
   const givenNum = parseInt(given || "0", 10);
   const change = givenNum - total;
@@ -257,7 +270,40 @@ function CheckoutSheet({
           ))}
         </div>
 
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Table</span>
+            <select
+              value={table}
+              onChange={(e) => setTable(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+            >
+              <option value="Comptoir">Comptoir</option>
+              {tables.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Serveur</span>
+            <select
+              value={server}
+              onChange={(e) => setServer(e.target.value)}
+              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
+            >
+              {servers.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <div className="mt-4">
+
           <p className="mb-2 text-xs font-semibold text-muted-foreground">Moyen de paiement</p>
           <div className="grid grid-cols-3 gap-2">
             {methods.map((m) => (
@@ -299,7 +345,7 @@ function CheckoutSheet({
         </div>
 
         <button
-          onClick={onConfirm}
+          onClick={() => onConfirm(table, server, method)}
           className="mt-4 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99]"
         >
           Encaisser {fcfa(total)}

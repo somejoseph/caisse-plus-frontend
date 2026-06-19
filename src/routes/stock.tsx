@@ -2,8 +2,10 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Search, Plus, AlertTriangle, PackageX } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
+import { AddDrinkSheet } from "@/components/AddDrinkSheet";
 import { cn } from "@/lib/utils";
-import { DRINKS, CATEGORIES, fcfa } from "@/lib/mock-data";
+import { CATEGORIES, fcfa } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/stock")({
   head: () => ({
@@ -16,22 +18,24 @@ export const Route = createFileRoute("/stock")({
 });
 
 function Stock() {
+  const { drinks } = useStore();
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState("Toutes");
+  const [addOpen, setAddOpen] = useState(false);
 
   const filtered = useMemo(
     () =>
-      DRINKS.filter(
+      drinks.filter(
         (d) =>
           (activeCat === "Toutes" || d.category === activeCat) &&
           d.name.toLowerCase().includes(query.toLowerCase()),
       ),
-    [query, activeCat],
+    [drinks, query, activeCat],
   );
 
-  const out = DRINKS.filter((d) => d.stock === 0).length;
-  const low = DRINKS.filter((d) => d.stock > 0 && d.stock <= d.threshold).length;
-  const value = DRINKS.reduce((s, d) => s + d.stock * d.cost, 0);
+  const out = drinks.filter((d) => d.stock === 0).length;
+  const low = drinks.filter((d) => d.stock > 0 && d.stock <= d.threshold).length;
+  const value = drinks.reduce((s, d) => s + d.stock * d.cost, 0);
 
   return (
     <AppLayout>
@@ -39,9 +43,12 @@ function Stock() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-foreground">Stock & catalogue</h1>
-            <p className="text-xs text-muted-foreground">{DRINKS.length} références actives</p>
+            <p className="text-xs text-muted-foreground">{drinks.length} références actives</p>
           </div>
-          <button className="flex items-center gap-1 rounded-full bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-1 rounded-full bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
+          >
             <Plus className="h-4 w-4" /> Boisson
           </button>
         </div>
@@ -127,6 +134,8 @@ function Stock() {
           })}
         </div>
       </div>
+
+      <AddDrinkSheet open={addOpen} onClose={() => setAddOpen(false)} />
     </AppLayout>
   );
 }

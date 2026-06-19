@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus, ArrowDownLeft, ArrowUpRight, Receipt, Banknote } from "lucide-react";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
+import { BottomSheet, Field, inputClass } from "@/components/BottomSheet";
 import { cn } from "@/lib/utils";
-import { fcfa, EXPENSES, PAYMENT_BREAKDOWN } from "@/lib/mock-data";
+import { fcfa, PAYMENT_BREAKDOWN } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 import { SectionTitle } from "./index";
 
 export const Route = createFileRoute("/caisse")({
@@ -20,9 +23,28 @@ const tabs = ["Résumé", "Opérations", "Moyens"] as const;
 
 function Caisse() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("Résumé");
+  const { expenses, addExpense } = useStore();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [label, setLabel] = useState("");
+  const [category, setCategory] = useState("Achats");
+  const [amount, setAmount] = useState("");
+
   const entrees = PAYMENT_BREAKDOWN.reduce((s, p) => s + p.amount, 0);
-  const sorties = EXPENSES.reduce((s, e) => s + e.amount, 0);
+  const sorties = expenses.reduce((s, e) => s + e.amount, 0);
   const solde = entrees - sorties;
+
+  const submitExpense = () => {
+    if (!label.trim() || !amount) {
+      toast.error("Libellé et montant sont obligatoires.");
+      return;
+    }
+    addExpense({ label: label.trim(), category, amount: parseInt(amount, 10) });
+    toast.success("Dépense enregistrée");
+    setLabel("");
+    setAmount("");
+    setCategory("Achats");
+    setSheetOpen(false);
+  };
 
   return (
     <AppLayout>
@@ -101,12 +123,15 @@ function Caisse() {
           <section>
             <div className="flex items-center justify-between">
               <SectionTitle title="Dépenses du jour" noMargin />
-              <button className="flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">
+              <button
+                onClick={() => setSheetOpen(true)}
+                className="flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground"
+              >
                 <Plus className="h-3.5 w-3.5" /> Ajouter
               </button>
             </div>
             <div className="mt-3 space-y-2">
-              {EXPENSES.map((e) => (
+              {expenses.map((e) => (
                 <div key={e.id} className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
                   <div className="flex items-center gap-3">
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 text-accent">
@@ -124,6 +149,39 @@ function Caisse() {
           </section>
         )}
       </div>
+
+      <BottomSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        title="Enregistrer une dépense"
+        subtitle="Sortie de caisse du jour"
+      >
+        <div className="space-y-3">
+          <Field label="Libellé">
+            <input value={label} onChange={(e) => setLabel(e.target.value)} className={inputClass} placeholder="Ex. Glace (sac x4)" />
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Catégorie">
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputClass}>
+                {["Achats", "Transport", "Salaires", "Charges", "Divers"].map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Montant (F)">
+              <input inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))} className={inputClass} placeholder="0" />
+            </Field>
+          </div>
+          <button
+            onClick={submitExpense}
+            className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99]"
+          >
+            Enregistrer la dépense
+          </button>
+        </div>
+      </BottomSheet>
     </AppLayout>
   );
 }

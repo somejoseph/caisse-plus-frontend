@@ -3,7 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { TrendingUp, Trophy, Clock } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { cn } from "@/lib/utils";
-import { fcfa, RECENT_SALES, DRINKS, WEEK_SALES } from "@/lib/mock-data";
+import { fcfa, WEEK_SALES } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 import { SectionTitle, MethodBadge } from "./index";
 
 export const Route = createFileRoute("/journal")({
@@ -20,8 +21,9 @@ const periods = ["Jour", "Semaine", "Mois"] as const;
 
 function Journal() {
   const [period, setPeriod] = useState<(typeof periods)[number]>("Jour");
+  const { drinks, sales } = useStore();
 
-  const topDrinks = [...DRINKS]
+  const topDrinks = [...drinks]
     .map((d) => ({ ...d, margin: d.price - d.cost }))
     .sort((a, b) => b.margin - a.margin)
     .slice(0, 5);
@@ -119,7 +121,7 @@ function Journal() {
             <SectionTitle title="Historique des ventes" noMargin />
           </div>
           <div className="space-y-2">
-            {RECENT_SALES.map((s) => (
+            {sales.map((s) => (
               <div key={s.id} className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
                 <div>
                   <p className="text-sm font-semibold text-foreground">{s.id} · {s.table}</p>

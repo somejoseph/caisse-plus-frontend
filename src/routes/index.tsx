@@ -13,7 +13,8 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
-import { fcfa, WEEK_SALES, RECENT_SALES, DRINKS } from "@/lib/mock-data";
+import { fcfa, WEEK_SALES } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -29,12 +30,13 @@ const quickActions = [
   { label: "Nouvelle vente", icon: PlusCircle, to: "/ventes", tone: "primary" },
   { label: "Voir le stock", icon: PackageSearch, to: "/stock", tone: "soft" },
   { label: "Dépense caisse", icon: Receipt, to: "/caisse", tone: "soft" },
-  { label: "QR menu", icon: QrCode, to: "/", tone: "soft" },
+  { label: "QR menu", icon: QrCode, to: "/qr-menu", tone: "soft" },
 ];
 
 function Home() {
-  const outOfStock = DRINKS.filter((d) => d.stock === 0).length;
-  const lowStock = DRINKS.filter((d) => d.stock > 0 && d.stock <= d.threshold).length;
+  const { drinks, sales } = useStore();
+  const outOfStock = drinks.filter((d) => d.stock === 0).length;
+  const lowStock = drinks.filter((d) => d.stock > 0 && d.stock <= d.threshold).length;
   const maxBar = Math.max(...WEEK_SALES.map((w) => w.value));
 
   return (
@@ -160,7 +162,7 @@ function Home() {
             </Link>
           </div>
           <div className="mt-3 space-y-2">
-            {RECENT_SALES.slice(0, 4).map((s) => (
+            {sales.slice(0, 4).map((s) => (
               <div
                 key={s.id}
                 className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card"

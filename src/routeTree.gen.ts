@@ -13,8 +13,15 @@ import { Route as VentesRouteImport } from './routes/ventes'
 import { Route as StockRouteImport } from './routes/stock'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ServeursRouteImport } from './routes/serveurs'
+import { Route as QrMenuRouteImport } from './routes/qr-menu'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as JournalRouteImport } from './routes/journal'
+import { Route as InventaireRouteImport } from './routes/inventaire'
+import { Route as ConnexionRouteImport } from './routes/connexion'
+import { Route as CatalogueRouteImport } from './routes/catalogue'
 import { Route as CaisseRouteImport } from './routes/caisse'
+import { Route as AuditRouteImport } from './routes/audit'
+import { Route as ApprovisionnementRouteImport } from './routes/approvisionnement'
 import { Route as IndexRouteImport } from './routes/index'
 
 const VentesRoute = VentesRouteImport.update({
@@ -37,14 +44,49 @@ const ServeursRoute = ServeursRouteImport.update({
   path: '/serveurs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const QrMenuRoute = QrMenuRouteImport.update({
+  id: '/qr-menu',
+  path: '/qr-menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JournalRoute = JournalRouteImport.update({
   id: '/journal',
   path: '/journal',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InventaireRoute = InventaireRouteImport.update({
+  id: '/inventaire',
+  path: '/inventaire',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnexionRoute = ConnexionRouteImport.update({
+  id: '/connexion',
+  path: '/connexion',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CatalogueRoute = CatalogueRouteImport.update({
+  id: '/catalogue',
+  path: '/catalogue',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CaisseRoute = CaisseRouteImport.update({
   id: '/caisse',
   path: '/caisse',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditRoute = AuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApprovisionnementRoute = ApprovisionnementRouteImport.update({
+  id: '/approvisionnement',
+  path: '/approvisionnement',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -55,8 +97,15 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/approvisionnement': typeof ApprovisionnementRoute
+  '/audit': typeof AuditRoute
   '/caisse': typeof CaisseRoute
+  '/catalogue': typeof CatalogueRoute
+  '/connexion': typeof ConnexionRoute
+  '/inventaire': typeof InventaireRoute
   '/journal': typeof JournalRoute
+  '/notifications': typeof NotificationsRoute
+  '/qr-menu': typeof QrMenuRoute
   '/serveurs': typeof ServeursRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
@@ -64,8 +113,15 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/approvisionnement': typeof ApprovisionnementRoute
+  '/audit': typeof AuditRoute
   '/caisse': typeof CaisseRoute
+  '/catalogue': typeof CatalogueRoute
+  '/connexion': typeof ConnexionRoute
+  '/inventaire': typeof InventaireRoute
   '/journal': typeof JournalRoute
+  '/notifications': typeof NotificationsRoute
+  '/qr-menu': typeof QrMenuRoute
   '/serveurs': typeof ServeursRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
@@ -74,8 +130,15 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/approvisionnement': typeof ApprovisionnementRoute
+  '/audit': typeof AuditRoute
   '/caisse': typeof CaisseRoute
+  '/catalogue': typeof CatalogueRoute
+  '/connexion': typeof ConnexionRoute
+  '/inventaire': typeof InventaireRoute
   '/journal': typeof JournalRoute
+  '/notifications': typeof NotificationsRoute
+  '/qr-menu': typeof QrMenuRoute
   '/serveurs': typeof ServeursRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
@@ -85,8 +148,15 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/approvisionnement'
+    | '/audit'
     | '/caisse'
+    | '/catalogue'
+    | '/connexion'
+    | '/inventaire'
     | '/journal'
+    | '/notifications'
+    | '/qr-menu'
     | '/serveurs'
     | '/sitemap.xml'
     | '/stock'
@@ -94,8 +164,15 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/approvisionnement'
+    | '/audit'
     | '/caisse'
+    | '/catalogue'
+    | '/connexion'
+    | '/inventaire'
     | '/journal'
+    | '/notifications'
+    | '/qr-menu'
     | '/serveurs'
     | '/sitemap.xml'
     | '/stock'
@@ -103,8 +180,15 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/approvisionnement'
+    | '/audit'
     | '/caisse'
+    | '/catalogue'
+    | '/connexion'
+    | '/inventaire'
     | '/journal'
+    | '/notifications'
+    | '/qr-menu'
     | '/serveurs'
     | '/sitemap.xml'
     | '/stock'
@@ -113,8 +197,15 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApprovisionnementRoute: typeof ApprovisionnementRoute
+  AuditRoute: typeof AuditRoute
   CaisseRoute: typeof CaisseRoute
+  CatalogueRoute: typeof CatalogueRoute
+  ConnexionRoute: typeof ConnexionRoute
+  InventaireRoute: typeof InventaireRoute
   JournalRoute: typeof JournalRoute
+  NotificationsRoute: typeof NotificationsRoute
+  QrMenuRoute: typeof QrMenuRoute
   ServeursRoute: typeof ServeursRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StockRoute: typeof StockRoute
@@ -151,6 +242,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ServeursRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/qr-menu': {
+      id: '/qr-menu'
+      path: '/qr-menu'
+      fullPath: '/qr-menu'
+      preLoaderRoute: typeof QrMenuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/journal': {
       id: '/journal'
       path: '/journal'
@@ -158,11 +263,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JournalRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/inventaire': {
+      id: '/inventaire'
+      path: '/inventaire'
+      fullPath: '/inventaire'
+      preLoaderRoute: typeof InventaireRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connexion': {
+      id: '/connexion'
+      path: '/connexion'
+      fullPath: '/connexion'
+      preLoaderRoute: typeof ConnexionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalogue': {
+      id: '/catalogue'
+      path: '/catalogue'
+      fullPath: '/catalogue'
+      preLoaderRoute: typeof CatalogueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/caisse': {
       id: '/caisse'
       path: '/caisse'
       fullPath: '/caisse'
       preLoaderRoute: typeof CaisseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/audit': {
+      id: '/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/approvisionnement': {
+      id: '/approvisionnement'
+      path: '/approvisionnement'
+      fullPath: '/approvisionnement'
+      preLoaderRoute: typeof ApprovisionnementRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -177,8 +317,15 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApprovisionnementRoute: ApprovisionnementRoute,
+  AuditRoute: AuditRoute,
   CaisseRoute: CaisseRoute,
+  CatalogueRoute: CatalogueRoute,
+  ConnexionRoute: ConnexionRoute,
+  InventaireRoute: InventaireRoute,
   JournalRoute: JournalRoute,
+  NotificationsRoute: NotificationsRoute,
+  QrMenuRoute: QrMenuRoute,
   ServeursRoute: ServeursRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StockRoute: StockRoute,
