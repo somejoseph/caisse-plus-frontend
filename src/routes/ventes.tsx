@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Search, Minus, Plus, ShoppingCart, X, ArrowLeft, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { cn } from "@/lib/utils";
-import { DRINKS, CATEGORIES, fcfa, type Drink } from "@/lib/mock-data";
+import { CATEGORIES, fcfa, type Drink } from "@/lib/mock-data";
+import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/ventes")({
   head: () => ({
