@@ -10,7 +10,7 @@ export const Route = createFileRoute("/audit")({
       { name: "description", content: "Journal d'audit : suppressions, modifications de prix et événements sensibles surveillés." },
     ],
   }),
-  component: Audit;
+  component: Audit,
 });
 
 type Level = "info" | "alert" | "danger";
