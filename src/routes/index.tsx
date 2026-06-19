@@ -162,7 +162,7 @@ function Home() {
             </Link>
           </div>
           <div className="mt-3 space-y-2">
-            {RECENT_SALES.slice(0, 4).map((s) => (
+            {sales.slice(0, 4).map((s) => (
               <div
                 key={s.id}
                 className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card"
