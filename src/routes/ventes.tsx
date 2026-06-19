@@ -18,18 +18,19 @@ export const Route = createFileRoute("/ventes")({
 });
 
 function Ventes() {
+  const { drinks, servers, tables, recordSale } = useStore();
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState<string>("Toutes");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [checkout, setCheckout] = useState(false);
 
   const filtered = useMemo(() => {
-    return DRINKS.filter((d) => {
+    return drinks.filter((d) => {
       const matchCat = activeCat === "Toutes" || d.category === activeCat;
       const matchQ = d.name.toLowerCase().includes(query.toLowerCase());
       return matchCat && matchQ;
     });
-  }, [query, activeCat]);
+  }, [drinks, query, activeCat]);
 
   const add = (id: string) => setCart((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }));
   const remove = (id: string) =>
