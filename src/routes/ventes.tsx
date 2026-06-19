@@ -126,10 +126,14 @@ function Ventes() {
         <CheckoutSheet
           lines={cartLines}
           total={total}
+          tables={tables.map((t) => t.name)}
+          servers={servers.filter((s) => s.active).map((s) => s.name)}
           onClose={() => setCheckout(false)}
           onAdd={add}
           onRemove={remove}
-          onConfirm={() => {
+          onConfirm={(table, server, method) => {
+            recordSale({ table, server, total, method, items: count });
+            toast.success("Vente encaissée", { description: `${fcfa(total)} · ${method}` });
             setCart({});
             setCheckout(false);
           }}
