@@ -34,8 +34,9 @@ const quickActions = [
 ];
 
 function Home() {
-  const outOfStock = DRINKS.filter((d) => d.stock === 0).length;
-  const lowStock = DRINKS.filter((d) => d.stock > 0 && d.stock <= d.threshold).length;
+  const { drinks, sales } = useStore();
+  const outOfStock = drinks.filter((d) => d.stock === 0).length;
+  const lowStock = drinks.filter((d) => d.stock > 0 && d.stock <= d.threshold).length;
   const maxBar = Math.max(...WEEK_SALES.map((w) => w.value));
 
   return (
