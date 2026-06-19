@@ -23,9 +23,28 @@ const tabs = ["Résumé", "Opérations", "Moyens"] as const;
 
 function Caisse() {
   const [tab, setTab] = useState<(typeof tabs)[number]>("Résumé");
+  const { expenses, addExpense } = useStore();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [label, setLabel] = useState("");
+  const [category, setCategory] = useState("Achats");
+  const [amount, setAmount] = useState("");
+
   const entrees = PAYMENT_BREAKDOWN.reduce((s, p) => s + p.amount, 0);
-  const sorties = EXPENSES.reduce((s, e) => s + e.amount, 0);
+  const sorties = expenses.reduce((s, e) => s + e.amount, 0);
   const solde = entrees - sorties;
+
+  const submitExpense = () => {
+    if (!label.trim() || !amount) {
+      toast.error("Libellé et montant sont obligatoires.");
+      return;
+    }
+    addExpense({ label: label.trim(), category, amount: parseInt(amount, 10) });
+    toast.success("Dépense enregistrée");
+    setLabel("");
+    setAmount("");
+    setCategory("Achats");
+    setSheetOpen(false);
+  };
 
   return (
     <AppLayout>
