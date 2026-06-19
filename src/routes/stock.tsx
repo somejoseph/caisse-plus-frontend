@@ -43,9 +43,12 @@ function Stock() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold text-foreground">Stock & catalogue</h1>
-            <p className="text-xs text-muted-foreground">{DRINKS.length} références actives</p>
+            <p className="text-xs text-muted-foreground">{drinks.length} références actives</p>
           </div>
-          <button className="flex items-center gap-1 rounded-full bg-primary px-3 py-2 text-xs font-bold text-primary-foreground">
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-1 rounded-full bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
+          >
             <Plus className="h-4 w-4" /> Boisson
           </button>
         </div>
