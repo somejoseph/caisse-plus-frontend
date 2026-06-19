@@ -345,7 +345,7 @@ function CheckoutSheet({
         </div>
 
         <button
-          onClick={onConfirm}
+          onClick={() => onConfirm(table, server, method)}
           className="mt-4 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99]"
         >
           Encaisser {fcfa(total)}
