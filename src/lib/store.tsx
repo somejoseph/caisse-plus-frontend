@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useCallback as _unused,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import {
   DRINKS as SEED_DRINKS,
   EXPENSES as SEED_EXPENSES,
