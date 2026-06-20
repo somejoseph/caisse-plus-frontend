@@ -103,18 +103,21 @@ interface StoreValue {
   sales: SaleEntry[];
   servers: ServerItem[];
   tables: TableItem[];
+  suppliers: Supplier[];
   notifications: AppNotification[];
   unreadCount: number;
   // actions
   login: () => void;
   logout: () => void;
   addExpense: (data: { label: string; category: string; amount: number }) => void;
-  addServer: (data: { name: string; phone: string }) => void;
+  addServer: (data: { name: string; phone: string; role: ServerRole; startDate: string }) => void;
+  editServer: (id: string, data: { name: string; phone: string; role: ServerRole; startDate: string }) => void;
   toggleServer: (id: string) => void;
   addTable: (data: { name: string; seats: number }) => void;
   cycleTableStatus: (id: string) => void;
+  addSupplier: (data: Omit<Supplier, "id">) => void;
   addDrink: (data: Omit<Drink, "id" | "emoji"> & { emoji?: string }) => void;
-  restockDrink: (id: string, qty: number) => void;
+  restockDrink: (id: string, qty: number, unitCost?: number, supplier?: string) => void;
   recordSale: (data: { table: string; server: string; total: number; method: SaleEntry["method"]; items: number }) => void;
   pushNotification: (n: Omit<AppNotification, "id" | "read" | "time"> & { time?: string }) => void;
   markRead: (id: string) => void;
