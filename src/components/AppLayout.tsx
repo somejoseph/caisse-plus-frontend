@@ -177,7 +177,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <aside className="relative ml-0 flex h-full w-[82%] max-w-xs flex-col bg-sidebar text-sidebar-foreground shadow-float">
             <div className="bg-brand-gradient px-5 pb-6 pt-6 text-primary-foreground">
               <div className="flex items-center justify-between">
-                <span className="font-display text-xl font-extrabold">Caisse+</span>
+                <span className="flex items-center gap-2 font-display text-xl font-extrabold">
+                  <img src={logo} alt="Logo Caisse+" width={32} height={32} className="h-8 w-8 rounded-lg bg-white/90 p-0.5" />
+                  Caisse+
+                </span>
                 <button onClick={() => setDrawerOpen(false)} aria-label="Fermer le menu">
                   <X className="h-5 w-5" />
                 </button>
