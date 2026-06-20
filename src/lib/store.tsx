@@ -135,6 +135,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [sales, setSales] = useState<SaleEntry[]>(() => SEED_SALES.map((s) => ({ ...s })));
   const [servers, setServers] = useState<ServerItem[]>(() => SEED_SERVERS.map((s) => ({ ...s })));
   const [tables, setTables] = useState<TableItem[]>(() => SEED_TABLES.map((t) => ({ ...t })));
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => SEED_SUPPLIERS.map((s) => ({ ...s })));
   const [notifications, setNotifications] = useState<AppNotification[]>(() =>
     seedNotifications(SEED_DRINKS),
   );
