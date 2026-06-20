@@ -35,8 +35,9 @@ function Connexion() {
   return (
     <div className="flex min-h-screen flex-col bg-brand-gradient px-6 text-primary-foreground">
       <div className="flex flex-1 flex-col justify-center">
-        <div className="mb-8 text-center">
-          <span className="font-display text-4xl font-extrabold">Caisse+</span>
+        <div className="mb-8 flex flex-col items-center text-center">
+          <img src={logo} alt="Logo Caisse+" width={72} height={72} className="h-18 w-18 rounded-2xl shadow-float" />
+          <span className="mt-3 font-display text-4xl font-extrabold">Caisse+</span>
           <p className="mt-1 text-sm text-primary-foreground/80">La caisse intelligente du maquis</p>
         </div>
 
