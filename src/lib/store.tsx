@@ -156,6 +156,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       sales,
       servers,
       tables,
+      suppliers,
       notifications,
       unreadCount: notifications.filter((n) => !n.read).length,
       login: () => setLoggedIn(true),
