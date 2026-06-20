@@ -115,6 +115,13 @@ function Stock() {
         </div>
 
         {/* List */}
+        {filtered.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-border bg-card py-10 text-center">
+            <Search className="mx-auto h-7 w-7 text-muted-foreground" />
+            <p className="mt-2 text-sm font-semibold text-foreground">Aucune boisson trouvée</p>
+            <p className="text-xs text-muted-foreground">Essaie un autre nom ou une autre catégorie.</p>
+          </div>
+        )}
         <div className="space-y-2">
           {filtered.map((d) => {
             const soldOut = d.stock === 0;
