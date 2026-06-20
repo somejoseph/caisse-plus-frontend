@@ -4,13 +4,18 @@ import {
   EXPENSES as SEED_EXPENSES,
   RECENT_SALES as SEED_SALES,
   SERVERS as SEED_SERVERS,
+  SUPPLIERS as SEED_SUPPLIERS,
   TABLES as SEED_TABLES,
   CURRENT_USER,
   ESTABLISHMENT,
   type Drink,
   type Expense,
   type SaleEntry,
+  type Supplier,
+  type ServerRole,
 } from "./mock-data";
+
+export type { Supplier, ServerRole } from "./mock-data";
 
 export type TableStatus = "Libre" | "Occupée" | "Addition";
 
@@ -25,6 +30,8 @@ export interface ServerItem {
   id: string;
   name: string;
   phone: string;
+  role: ServerRole;
+  startDate: string;
   active: boolean;
   sales: number;
   orders: number;
