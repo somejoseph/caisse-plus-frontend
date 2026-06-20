@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
+import logo from "@/assets/logo.png";
 
 const navItems = [
   { to: "/", label: "Accueil", icon: Home },
@@ -37,6 +38,7 @@ const drawerLinks = [
   { to: "/serveurs", label: "Serveurs & Tables", icon: Users },
   { to: "/journal", label: "Journal & Rapports", icon: ScrollText },
   { to: "/approvisionnement", label: "Approvisionnement", icon: Truck },
+  { to: "/fournisseurs", label: "Fournisseurs", icon: Building2 },
   { to: "/inventaire", label: "Inventaire", icon: ClipboardCheck },
   { to: "/catalogue", label: "Catalogue boissons", icon: BookOpen },
   { to: "/qr-menu", label: "QR Code menu", icon: QrCode },
