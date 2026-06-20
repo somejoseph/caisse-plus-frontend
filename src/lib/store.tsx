@@ -170,9 +170,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           tone: "info",
         });
       },
-      addServer: ({ name, phone }) => {
-        setServers((prev) => [...prev, { id: uid("s"), name, phone, active: true, sales: 0, orders: 0 }]);
-        pushNotification({ title: "Serveur ajouté", body: `${name} a rejoint l'équipe.`, tone: "success" });
+      addServer: ({ name, phone, role, startDate }) => {
+        setServers((prev) => [...prev, { id: uid("s"), name, phone, role, startDate, active: true, sales: 0, orders: 0 }]);
+        pushNotification({ title: "Serveur ajouté", body: `${name} (${role}) a rejoint l'équipe.`, tone: "success" });
+      },
+      editServer: (id, data) => {
+        setServers((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s)));
+        pushNotification({ title: "Serveur modifié", body: `Les infos de ${data.name} ont été mises à jour.`, tone: "info" });
       },
       toggleServer: (id) =>
         setServers((prev) => prev.map((s) => (s.id === id ? { ...s, active: !s.active } : s))),
