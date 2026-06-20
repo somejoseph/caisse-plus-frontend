@@ -192,6 +192,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
               : t,
           ),
         ),
+      addSupplier: (data) => {
+        setSuppliers((prev) => [...prev, { ...data, id: uid("f") }]);
+        pushNotification({ title: "Fournisseur ajouté", body: `${data.name} ajouté à vos fournisseurs.`, tone: "success" });
+      },
       addDrink: (data) => {
         setDrinks((prev) => [
           ...prev,
@@ -199,12 +203,18 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         ]);
         pushNotification({ title: "Boisson ajoutée", body: `${data.name} ajoutée au catalogue.`, tone: "success" });
       },
-      restockDrink: (id, qty) => {
-        setDrinks((prev) => prev.map((d) => (d.id === id ? { ...d, stock: d.stock + qty } : d)));
+      restockDrink: (id, qty, unitCost, supplier) => {
+        setDrinks((prev) =>
+          prev.map((d) =>
+            d.id === id
+              ? { ...d, stock: d.stock + qty, cost: unitCost && unitCost > 0 ? unitCost : d.cost }
+              : d,
+          ),
+        );
         const d = drinks.find((x) => x.id === id);
         pushNotification({
           title: "Réapprovisionnement",
-          body: `${d?.name ?? "Boisson"} : +${qty} unités.`,
+          body: `${d?.name ?? "Boisson"} : +${qty} unités${supplier ? ` · ${supplier}` : ""}.`,
           tone: "success",
         });
       },
