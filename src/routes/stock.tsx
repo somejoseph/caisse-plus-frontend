@@ -73,15 +73,30 @@ function Stock() {
         </div>
 
         {/* Search */}
-        <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2.5 shadow-card">
+        <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2.5 shadow-card focus-within:border-primary">
           <Search className="h-5 w-5 text-muted-foreground" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher…"
+            placeholder="Rechercher par nom, format, catégorie…"
             className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              aria-label="Effacer la recherche"
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground active:scale-95"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
+        {(query || activeCat !== "Toutes") && (
+          <p className="-mt-1 text-xs text-muted-foreground">
+            {filtered.length} résultat{filtered.length > 1 ? "s" : ""}
+            {activeCat !== "Toutes" && ` · ${activeCat}`}
+          </p>
+        )}
 
         {/* Categories */}
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 no-scrollbar">
