@@ -92,9 +92,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   />
                   <div className="absolute left-1/2 top-12 z-50 w-64 -translate-x-1/2 rounded-2xl border border-border bg-card p-4 text-foreground shadow-float">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-gradient text-primary-foreground">
-                        <Building2 className="h-5 w-5" />
-                      </div>
+                      <img src={logo} alt="Logo Caisse+" width={44} height={44} className="h-11 w-11 rounded-xl" />
+
                       <div className="min-w-0">
                         <p className="truncate font-bold leading-tight">{establishment.name}</p>
                         <p className="text-xs text-muted-foreground">{establishment.type}</p>
