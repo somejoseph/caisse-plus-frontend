@@ -62,8 +62,8 @@ function Stock() {
             <p className="font-display text-lg font-extrabold text-foreground">{fcfa(value)}</p>
             <p className="text-[11px] text-muted-foreground">Valeur stock</p>
           </div>
-          <div className="rounded-2xl border border-secondary/30 bg-secondary/10 p-3 text-center">
-            <p className="font-display text-lg font-extrabold text-secondary">{low}</p>
+          <div className="rounded-2xl border border-warning/30 bg-warning/10 p-3 text-center">
+            <p className="font-display text-lg font-extrabold text-warning">{low}</p>
             <p className="text-[11px] text-muted-foreground">Sous seuil</p>
           </div>
           <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-center">
