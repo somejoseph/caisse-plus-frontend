@@ -236,7 +236,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       markRead: (id) => setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n))),
       markAllRead: () => setNotifications((prev) => prev.map((n) => ({ ...n, read: true }))),
     };
-  }, [loggedIn, drinks, expenses, sales, servers, tables, notifications]);
+  }, [loggedIn, drinks, expenses, sales, servers, tables, suppliers, notifications]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
