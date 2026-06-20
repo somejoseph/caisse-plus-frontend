@@ -26,15 +26,15 @@ function Stock() {
   const [activeCat, setActiveCat] = useState("Toutes");
   const [addOpen, setAddOpen] = useState(false);
 
-  const filtered = useMemo(
-    () =>
-      drinks.filter(
-        (d) =>
-          (activeCat === "Toutes" || d.category === activeCat) &&
-          d.name.toLowerCase().includes(query.toLowerCase()),
-      ),
-    [drinks, query, activeCat],
-  );
+  const filtered = useMemo(() => {
+    const terms = normalize(query).split(/\s+/).filter(Boolean);
+    return drinks.filter((d) => {
+      if (activeCat !== "Toutes" && d.category !== activeCat) return false;
+      if (terms.length === 0) return true;
+      const haystack = normalize(`${d.name} ${d.category} ${d.size}`);
+      return terms.every((t) => haystack.includes(t));
+    });
+  }, [drinks, query, activeCat]);
 
   const out = drinks.filter((d) => d.stock === 0).length;
   const low = drinks.filter((d) => d.stock > 0 && d.stock <= d.threshold).length;
