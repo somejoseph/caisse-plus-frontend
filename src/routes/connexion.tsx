@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { Lock, User, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { ESTABLISHMENT } from "@/lib/mock-data";
+import logo from "@/assets/logo.png";
 
 export const Route = createFileRoute("/connexion")({
   head: () => ({

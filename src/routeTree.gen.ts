@@ -17,6 +17,7 @@ import { Route as QrMenuRouteImport } from './routes/qr-menu'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as JournalRouteImport } from './routes/journal'
 import { Route as InventaireRouteImport } from './routes/inventaire'
+import { Route as InscriptionRouteImport } from './routes/inscription'
 import { Route as FournisseursRouteImport } from './routes/fournisseurs'
 import { Route as ConnexionRouteImport } from './routes/connexion'
 import { Route as CatalogueRouteImport } from './routes/catalogue'
@@ -65,6 +66,11 @@ const InventaireRoute = InventaireRouteImport.update({
   path: '/inventaire',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InscriptionRoute = InscriptionRouteImport.update({
+  id: '/inscription',
+  path: '/inscription',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FournisseursRoute = FournisseursRouteImport.update({
   id: '/fournisseurs',
   path: '/fournisseurs',
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/catalogue': typeof CatalogueRoute
   '/connexion': typeof ConnexionRoute
   '/fournisseurs': typeof FournisseursRoute
+  '/inscription': typeof InscriptionRoute
   '/inventaire': typeof InventaireRoute
   '/journal': typeof JournalRoute
   '/notifications': typeof NotificationsRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/catalogue': typeof CatalogueRoute
   '/connexion': typeof ConnexionRoute
   '/fournisseurs': typeof FournisseursRoute
+  '/inscription': typeof InscriptionRoute
   '/inventaire': typeof InventaireRoute
   '/journal': typeof JournalRoute
   '/notifications': typeof NotificationsRoute
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/catalogue': typeof CatalogueRoute
   '/connexion': typeof ConnexionRoute
   '/fournisseurs': typeof FournisseursRoute
+  '/inscription': typeof InscriptionRoute
   '/inventaire': typeof InventaireRoute
   '/journal': typeof JournalRoute
   '/notifications': typeof NotificationsRoute
@@ -163,6 +172,7 @@ export interface FileRouteTypes {
     | '/catalogue'
     | '/connexion'
     | '/fournisseurs'
+    | '/inscription'
     | '/inventaire'
     | '/journal'
     | '/notifications'
@@ -180,6 +190,7 @@ export interface FileRouteTypes {
     | '/catalogue'
     | '/connexion'
     | '/fournisseurs'
+    | '/inscription'
     | '/inventaire'
     | '/journal'
     | '/notifications'
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
     | '/catalogue'
     | '/connexion'
     | '/fournisseurs'
+    | '/inscription'
     | '/inventaire'
     | '/journal'
     | '/notifications'
@@ -215,6 +227,7 @@ export interface RootRouteChildren {
   CatalogueRoute: typeof CatalogueRoute
   ConnexionRoute: typeof ConnexionRoute
   FournisseursRoute: typeof FournisseursRoute
+  InscriptionRoute: typeof InscriptionRoute
   InventaireRoute: typeof InventaireRoute
   JournalRoute: typeof JournalRoute
   NotificationsRoute: typeof NotificationsRoute
@@ -283,6 +296,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InventaireRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/inscription': {
+      id: '/inscription'
+      path: '/inscription'
+      fullPath: '/inscription'
+      preLoaderRoute: typeof InscriptionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/fournisseurs': {
       id: '/fournisseurs'
       path: '/fournisseurs'
@@ -343,6 +363,7 @@ const rootRouteChildren: RootRouteChildren = {
   CatalogueRoute: CatalogueRoute,
   ConnexionRoute: ConnexionRoute,
   FournisseursRoute: FournisseursRoute,
+  InscriptionRoute: InscriptionRoute,
   InventaireRoute: InventaireRoute,
   JournalRoute: JournalRoute,
   NotificationsRoute: NotificationsRoute,
