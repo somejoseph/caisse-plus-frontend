@@ -80,6 +80,13 @@ function Connexion() {
           >
             Se connecter <ArrowRight className="h-5 w-5" />
           </button>
+
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Pas encore de compte ?{" "}
+            <Link to="/inscription" className="font-bold text-primary">
+              Créer un compte
+            </Link>
+          </p>
         </div>
       </div>
       <p className="pb-6 text-center text-xs text-primary-foreground/70">Caisse+ v2.1 · Sohapigroup</p>
