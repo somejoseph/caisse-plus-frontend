@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Search, Plus, AlertTriangle, PackageX } from "lucide-react";
+import { Search, Plus, AlertTriangle, PackageX, X } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { AddDrinkSheet } from "@/components/AddDrinkSheet";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, fcfa } from "@/lib/mock-data";
 import { useStore } from "@/lib/store";
+
+const normalize = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
 export const Route = createFileRoute("/stock")({
   head: () => ({
