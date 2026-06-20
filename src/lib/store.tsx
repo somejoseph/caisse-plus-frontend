@@ -4,13 +4,18 @@ import {
   EXPENSES as SEED_EXPENSES,
   RECENT_SALES as SEED_SALES,
   SERVERS as SEED_SERVERS,
+  SUPPLIERS as SEED_SUPPLIERS,
   TABLES as SEED_TABLES,
   CURRENT_USER,
   ESTABLISHMENT,
   type Drink,
   type Expense,
   type SaleEntry,
+  type Supplier,
+  type ServerRole,
 } from "./mock-data";
+
+export type { Supplier, ServerRole } from "./mock-data";
 
 export type TableStatus = "Libre" | "Occupée" | "Addition";
 
@@ -25,6 +30,8 @@ export interface ServerItem {
   id: string;
   name: string;
   phone: string;
+  role: ServerRole;
+  startDate: string;
   active: boolean;
   sales: number;
   orders: number;
@@ -96,18 +103,21 @@ interface StoreValue {
   sales: SaleEntry[];
   servers: ServerItem[];
   tables: TableItem[];
+  suppliers: Supplier[];
   notifications: AppNotification[];
   unreadCount: number;
   // actions
   login: () => void;
   logout: () => void;
   addExpense: (data: { label: string; category: string; amount: number }) => void;
-  addServer: (data: { name: string; phone: string }) => void;
+  addServer: (data: { name: string; phone: string; role: ServerRole; startDate: string }) => void;
+  editServer: (id: string, data: { name: string; phone: string; role: ServerRole; startDate: string }) => void;
   toggleServer: (id: string) => void;
   addTable: (data: { name: string; seats: number }) => void;
   cycleTableStatus: (id: string) => void;
+  addSupplier: (data: Omit<Supplier, "id">) => void;
   addDrink: (data: Omit<Drink, "id" | "emoji"> & { emoji?: string }) => void;
-  restockDrink: (id: string, qty: number) => void;
+  restockDrink: (id: string, qty: number, unitCost?: number, supplier?: string) => void;
   recordSale: (data: { table: string; server: string; total: number; method: SaleEntry["method"]; items: number }) => void;
   pushNotification: (n: Omit<AppNotification, "id" | "read" | "time"> & { time?: string }) => void;
   markRead: (id: string) => void;
@@ -125,6 +135,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [sales, setSales] = useState<SaleEntry[]>(() => SEED_SALES.map((s) => ({ ...s })));
   const [servers, setServers] = useState<ServerItem[]>(() => SEED_SERVERS.map((s) => ({ ...s })));
   const [tables, setTables] = useState<TableItem[]>(() => SEED_TABLES.map((t) => ({ ...t })));
+  const [suppliers, setSuppliers] = useState<Supplier[]>(() => SEED_SUPPLIERS.map((s) => ({ ...s })));
   const [notifications, setNotifications] = useState<AppNotification[]>(() =>
     seedNotifications(SEED_DRINKS),
   );
@@ -145,6 +156,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       sales,
       servers,
       tables,
+      suppliers,
       notifications,
       unreadCount: notifications.filter((n) => !n.read).length,
       login: () => setLoggedIn(true),
@@ -158,9 +170,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           tone: "info",
         });
       },
-      addServer: ({ name, phone }) => {
-        setServers((prev) => [...prev, { id: uid("s"), name, phone, active: true, sales: 0, orders: 0 }]);
-        pushNotification({ title: "Serveur ajouté", body: `${name} a rejoint l'équipe.`, tone: "success" });
+      addServer: ({ name, phone, role, startDate }) => {
+        setServers((prev) => [...prev, { id: uid("s"), name, phone, role, startDate, active: true, sales: 0, orders: 0 }]);
+        pushNotification({ title: "Serveur ajouté", body: `${name} (${role}) a rejoint l'équipe.`, tone: "success" });
+      },
+      editServer: (id, data) => {
+        setServers((prev) => prev.map((s) => (s.id === id ? { ...s, ...data } : s)));
+        pushNotification({ title: "Serveur modifié", body: `Les infos de ${data.name} ont été mises à jour.`, tone: "info" });
       },
       toggleServer: (id) =>
         setServers((prev) => prev.map((s) => (s.id === id ? { ...s, active: !s.active } : s))),
@@ -176,6 +192,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
               : t,
           ),
         ),
+      addSupplier: (data) => {
+        setSuppliers((prev) => [...prev, { ...data, id: uid("f") }]);
+        pushNotification({ title: "Fournisseur ajouté", body: `${data.name} ajouté à vos fournisseurs.`, tone: "success" });
+      },
       addDrink: (data) => {
         setDrinks((prev) => [
           ...prev,
@@ -183,12 +203,18 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         ]);
         pushNotification({ title: "Boisson ajoutée", body: `${data.name} ajoutée au catalogue.`, tone: "success" });
       },
-      restockDrink: (id, qty) => {
-        setDrinks((prev) => prev.map((d) => (d.id === id ? { ...d, stock: d.stock + qty } : d)));
+      restockDrink: (id, qty, unitCost, supplier) => {
+        setDrinks((prev) =>
+          prev.map((d) =>
+            d.id === id
+              ? { ...d, stock: d.stock + qty, cost: unitCost && unitCost > 0 ? unitCost : d.cost }
+              : d,
+          ),
+        );
         const d = drinks.find((x) => x.id === id);
         pushNotification({
           title: "Réapprovisionnement",
-          body: `${d?.name ?? "Boisson"} : +${qty} unités.`,
+          body: `${d?.name ?? "Boisson"} : +${qty} unités${supplier ? ` · ${supplier}` : ""}.`,
           tone: "success",
         });
       },
@@ -210,7 +236,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       markRead: (id) => setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n))),
       markAllRead: () => setNotifications((prev) => prev.map((n) => ({ ...n, read: true }))),
     };
-  }, [loggedIn, drinks, expenses, sales, servers, tables, notifications]);
+  }, [loggedIn, drinks, expenses, sales, servers, tables, suppliers, notifications]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

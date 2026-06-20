@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
+import logo from "@/assets/logo.png";
 
 const navItems = [
   { to: "/", label: "Accueil", icon: Home },
@@ -37,6 +38,7 @@ const drawerLinks = [
   { to: "/serveurs", label: "Serveurs & Tables", icon: Users },
   { to: "/journal", label: "Journal & Rapports", icon: ScrollText },
   { to: "/approvisionnement", label: "Approvisionnement", icon: Truck },
+  { to: "/fournisseurs", label: "Fournisseurs", icon: Building2 },
   { to: "/inventaire", label: "Inventaire", icon: ClipboardCheck },
   { to: "/catalogue", label: "Catalogue boissons", icon: BookOpen },
   { to: "/qr-menu", label: "QR Code menu", icon: QrCode },
@@ -74,10 +76,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <div className="relative">
               <button
                 onClick={() => setEstOpen((v) => !v)}
-                className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-sm font-semibold active:scale-95"
+                className="flex items-center gap-2 rounded-full bg-white/15 py-1 pl-1 pr-3 text-sm font-semibold active:scale-95"
               >
-                <Building2 className="h-4 w-4" />
-                <span className="max-w-[140px] truncate">{establishment.name}</span>
+                <img src={logo} alt="Logo" width={28} height={28} className="h-7 w-7 rounded-full bg-white/90 p-0.5" />
+                <span className="max-w-[120px] truncate">{establishment.name}</span>
                 <ChevronDown className={cn("h-4 w-4 opacity-80 transition-transform", estOpen && "rotate-180")} />
               </button>
 
@@ -90,9 +92,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   />
                   <div className="absolute left-1/2 top-12 z-50 w-64 -translate-x-1/2 rounded-2xl border border-border bg-card p-4 text-foreground shadow-float">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-gradient text-primary-foreground">
-                        <Building2 className="h-5 w-5" />
-                      </div>
+                      <img src={logo} alt="Logo Caisse+" width={44} height={44} className="h-11 w-11 rounded-xl" />
+
                       <div className="min-w-0">
                         <p className="truncate font-bold leading-tight">{establishment.name}</p>
                         <p className="text-xs text-muted-foreground">{establishment.type}</p>
@@ -176,7 +177,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <aside className="relative ml-0 flex h-full w-[82%] max-w-xs flex-col bg-sidebar text-sidebar-foreground shadow-float">
             <div className="bg-brand-gradient px-5 pb-6 pt-6 text-primary-foreground">
               <div className="flex items-center justify-between">
-                <span className="font-display text-xl font-extrabold">Caisse+</span>
+                <span className="flex items-center gap-2 font-display text-xl font-extrabold">
+                  <img src={logo} alt="Logo Caisse+" width={32} height={32} className="h-8 w-8 rounded-lg bg-white/90 p-0.5" />
+                  Caisse+
+                </span>
                 <button onClick={() => setDrawerOpen(false)} aria-label="Fermer le menu">
                   <X className="h-5 w-5" />
                 </button>

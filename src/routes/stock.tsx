@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Search, Plus, AlertTriangle, PackageX } from "lucide-react";
+import { Search, Plus, AlertTriangle, PackageX, X } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { AddDrinkSheet } from "@/components/AddDrinkSheet";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, fcfa } from "@/lib/mock-data";
 import { useStore } from "@/lib/store";
+
+const normalize = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
 export const Route = createFileRoute("/stock")({
   head: () => ({
@@ -23,15 +26,15 @@ function Stock() {
   const [activeCat, setActiveCat] = useState("Toutes");
   const [addOpen, setAddOpen] = useState(false);
 
-  const filtered = useMemo(
-    () =>
-      drinks.filter(
-        (d) =>
-          (activeCat === "Toutes" || d.category === activeCat) &&
-          d.name.toLowerCase().includes(query.toLowerCase()),
-      ),
-    [drinks, query, activeCat],
-  );
+  const filtered = useMemo(() => {
+    const terms = normalize(query).split(/\s+/).filter(Boolean);
+    return drinks.filter((d) => {
+      if (activeCat !== "Toutes" && d.category !== activeCat) return false;
+      if (terms.length === 0) return true;
+      const haystack = normalize(`${d.name} ${d.category} ${d.size}`);
+      return terms.every((t) => haystack.includes(t));
+    });
+  }, [drinks, query, activeCat]);
 
   const out = drinks.filter((d) => d.stock === 0).length;
   const low = drinks.filter((d) => d.stock > 0 && d.stock <= d.threshold).length;
@@ -59,8 +62,8 @@ function Stock() {
             <p className="font-display text-lg font-extrabold text-foreground">{fcfa(value)}</p>
             <p className="text-[11px] text-muted-foreground">Valeur stock</p>
           </div>
-          <div className="rounded-2xl border border-secondary/30 bg-secondary/10 p-3 text-center">
-            <p className="font-display text-lg font-extrabold text-secondary">{low}</p>
+          <div className="rounded-2xl border border-warning/30 bg-warning/10 p-3 text-center">
+            <p className="font-display text-lg font-extrabold text-warning">{low}</p>
             <p className="text-[11px] text-muted-foreground">Sous seuil</p>
           </div>
           <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-3 text-center">
@@ -70,15 +73,30 @@ function Stock() {
         </div>
 
         {/* Search */}
-        <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2.5 shadow-card">
+        <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2.5 shadow-card focus-within:border-primary">
           <Search className="h-5 w-5 text-muted-foreground" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher…"
+            placeholder="Rechercher par nom, format, catégorie…"
             className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              aria-label="Effacer la recherche"
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground active:scale-95"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
+        {(query || activeCat !== "Toutes") && (
+          <p className="-mt-1 text-xs text-muted-foreground">
+            {filtered.length} résultat{filtered.length > 1 ? "s" : ""}
+            {activeCat !== "Toutes" && ` · ${activeCat}`}
+          </p>
+        )}
 
         {/* Categories */}
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 no-scrollbar">
@@ -97,6 +115,13 @@ function Stock() {
         </div>
 
         {/* List */}
+        {filtered.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-border bg-card py-10 text-center">
+            <Search className="mx-auto h-7 w-7 text-muted-foreground" />
+            <p className="mt-2 text-sm font-semibold text-foreground">Aucune boisson trouvée</p>
+            <p className="text-xs text-muted-foreground">Essaie un autre nom ou une autre catégorie.</p>
+          </div>
+        )}
         <div className="space-y-2">
           {filtered.map((d) => {
             const soldOut = d.stock === 0;
@@ -119,12 +144,12 @@ function Stock() {
                 </div>
                 <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div
-                    className={cn("h-full rounded-full", soldOut ? "bg-destructive" : lowStock ? "bg-secondary" : "bg-primary")}
+                    className={cn("h-full rounded-full", soldOut ? "bg-destructive" : lowStock ? "bg-warning" : "bg-primary")}
                     style={{ width: `${soldOut ? 100 : ratio}%` }}
                   />
                 </div>
                 {(soldOut || lowStock) && (
-                  <p className={cn("mt-2 flex items-center gap-1 text-xs font-semibold", soldOut ? "text-destructive" : "text-secondary")}>
+                  <p className={cn("mt-2 flex items-center gap-1 text-xs font-semibold", soldOut ? "text-destructive" : "text-warning")}>
                     {soldOut ? <PackageX className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
                     {soldOut ? "Rupture de stock — réapprovisionner" : "Stock bas — bientôt en rupture"}
                   </p>

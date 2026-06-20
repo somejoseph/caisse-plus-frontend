@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { Lock, User, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { ESTABLISHMENT } from "@/lib/mock-data";
+import logo from "@/assets/logo.png";
 
 export const Route = createFileRoute("/connexion")({
   head: () => ({
@@ -34,8 +35,9 @@ function Connexion() {
   return (
     <div className="flex min-h-screen flex-col bg-brand-gradient px-6 text-primary-foreground">
       <div className="flex flex-1 flex-col justify-center">
-        <div className="mb-8 text-center">
-          <span className="font-display text-4xl font-extrabold">Caisse+</span>
+        <div className="mb-8 flex flex-col items-center text-center">
+          <img src={logo} alt="Logo Caisse+" width={72} height={72} className="h-18 w-18 rounded-2xl shadow-float" />
+          <span className="mt-3 font-display text-4xl font-extrabold">Caisse+</span>
           <p className="mt-1 text-sm text-primary-foreground/80">La caisse intelligente du maquis</p>
         </div>
 
@@ -78,6 +80,13 @@ function Connexion() {
           >
             Se connecter <ArrowRight className="h-5 w-5" />
           </button>
+
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Pas encore de compte ?{" "}
+            <Link to="/inscription" className="font-bold text-primary">
+              Créer un compte
+            </Link>
+          </p>
         </div>
       </div>
       <p className="pb-6 text-center text-xs text-primary-foreground/70">Caisse+ v2.1 · Sohapigroup</p>

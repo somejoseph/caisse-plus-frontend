@@ -109,9 +109,26 @@ export const TABLES = [
   { id: "t8", name: "Table 8", status: "Occupée" as const, seats: 4 },
 ];
 
+export type ServerRole = "Serveur(e)" | "Gérant(e)";
+
 export const SERVERS = [
-  { id: "s1", name: "Yao Kouassi", phone: "+225 07 00 00 01", active: true, sales: 142000, orders: 38 },
-  { id: "s2", name: "Awa Koné", phone: "+225 07 00 00 02", active: true, sales: 98500, orders: 27 },
-  { id: "s3", name: "Fatou Diabaté", phone: "+225 07 00 00 03", active: true, sales: 76000, orders: 21 },
-  { id: "s4", name: "Ibrahim Touré", phone: "+225 07 00 00 04", active: false, sales: 0, orders: 0 },
+  { id: "s1", name: "Yao Kouassi", phone: "+225 07 00 00 01", role: "Serveur(e)" as ServerRole, startDate: "2024-03-12", active: true, sales: 142000, orders: 38 },
+  { id: "s2", name: "Awa Koné", phone: "+225 07 00 00 02", role: "Gérant(e)" as ServerRole, startDate: "2023-11-02", active: true, sales: 98500, orders: 27 },
+  { id: "s3", name: "Fatou Diabaté", phone: "+225 07 00 00 03", role: "Serveur(e)" as ServerRole, startDate: "2024-06-20", active: true, sales: 76000, orders: 21 },
+  { id: "s4", name: "Ibrahim Touré", phone: "+225 07 00 00 04", role: "Serveur(e)" as ServerRole, startDate: "2025-01-08", active: false, sales: 0, orders: 0 },
+];
+
+export interface Supplier {
+  id: string;
+  name: string;
+  contact: string;
+  phone: string;
+  category: string;
+  note?: string;
+}
+
+export const SUPPLIERS: Supplier[] = [
+  { id: "f1", name: "Brasserie Solibra", contact: "Kouadio Yves", phone: "+225 27 21 00 11", category: "Bières", note: "Livraison mardi & vendredi" },
+  { id: "f2", name: "Distrib' Abidjan", contact: "Mariam Sylla", phone: "+225 07 88 22 33", category: "Spiritueux", note: "Paiement à 15 jours" },
+  { id: "f3", name: "Eau Awa SA", contact: "Service commercial", phone: "+225 05 44 66 77", category: "Eaux & Softs" },
 ];
