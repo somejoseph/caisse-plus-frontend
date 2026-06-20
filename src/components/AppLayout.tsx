@@ -76,10 +76,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <div className="relative">
               <button
                 onClick={() => setEstOpen((v) => !v)}
-                className="flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-sm font-semibold active:scale-95"
+                className="flex items-center gap-2 rounded-full bg-white/15 py-1 pl-1 pr-3 text-sm font-semibold active:scale-95"
               >
-                <Building2 className="h-4 w-4" />
-                <span className="max-w-[140px] truncate">{establishment.name}</span>
+                <img src={logo} alt="Logo" width={28} height={28} className="h-7 w-7 rounded-full bg-white/90 p-0.5" />
+                <span className="max-w-[120px] truncate">{establishment.name}</span>
                 <ChevronDown className={cn("h-4 w-4 opacity-80 transition-transform", estOpen && "rotate-180")} />
               </button>
 
