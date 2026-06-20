@@ -144,12 +144,12 @@ function Stock() {
                 </div>
                 <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div
-                    className={cn("h-full rounded-full", soldOut ? "bg-destructive" : lowStock ? "bg-secondary" : "bg-primary")}
+                    className={cn("h-full rounded-full", soldOut ? "bg-destructive" : lowStock ? "bg-warning" : "bg-primary")}
                     style={{ width: `${soldOut ? 100 : ratio}%` }}
                   />
                 </div>
                 {(soldOut || lowStock) && (
-                  <p className={cn("mt-2 flex items-center gap-1 text-xs font-semibold", soldOut ? "text-destructive" : "text-secondary")}>
+                  <p className={cn("mt-2 flex items-center gap-1 text-xs font-semibold", soldOut ? "text-destructive" : "text-warning")}>
                     {soldOut ? <PackageX className="h-3.5 w-3.5" /> : <AlertTriangle className="h-3.5 w-3.5" />}
                     {soldOut ? "Rupture de stock — réapprovisionner" : "Stock bas — bientôt en rupture"}
                   </p>
