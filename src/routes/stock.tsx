@@ -1,27 +1,23 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { Search, Plus, AlertTriangle, PackageX, X } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { AddDrinkSheet } from "@/components/AddDrinkSheet";
+import { DrinkImage } from "@/components/DrinkImage";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, fcfa } from "@/lib/mock-data";
-import { useStore } from "@/lib/store";
+import { getDrinksApi } from "@/lib/graphql/operations";
 
 const normalize = (s: string) =>
-  s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 
 export const Route = createFileRoute("/stock")({
-  head: () => ({
-    meta: [
-      { title: "Stock & catalogue — Caisse+" },
-      { name: "description", content: "Suivi du stock de boissons en temps réel avec alertes de seuil et ruptures." },
-    ],
-  }),
   component: Stock,
 });
 
 function Stock() {
-  const { drinks } = useStore();
+  const { data: drinks = [] } = useQuery({ queryKey: ["drinks"], queryFn: () => getDrinksApi() });
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState("Toutes");
   const [addOpen, setAddOpen] = useState(false);
@@ -56,7 +52,6 @@ function Stock() {
           </button>
         </div>
 
-        {/* Summary */}
         <div className="grid grid-cols-3 gap-2">
           <div className="rounded-2xl border border-border bg-card p-3 text-center shadow-card">
             <p className="font-display text-lg font-extrabold text-foreground">{fcfa(value)}</p>
@@ -72,7 +67,6 @@ function Stock() {
           </div>
         </div>
 
-        {/* Search */}
         <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2.5 shadow-card focus-within:border-primary">
           <Search className="h-5 w-5 text-muted-foreground" />
           <input
@@ -82,11 +76,7 @@ function Stock() {
             className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
           {query && (
-            <button
-              onClick={() => setQuery("")}
-              aria-label="Effacer la recherche"
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground active:scale-95"
-            >
+            <button onClick={() => setQuery("")} aria-label="Effacer" className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-muted-foreground active:scale-95">
               <X className="h-3.5 w-3.5" />
             </button>
           )}
@@ -98,7 +88,6 @@ function Stock() {
           </p>
         )}
 
-        {/* Categories */}
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 no-scrollbar">
           {["Toutes", ...CATEGORIES].map((cat) => (
             <button
@@ -114,7 +103,6 @@ function Stock() {
           ))}
         </div>
 
-        {/* List */}
         {filtered.length === 0 && (
           <div className="rounded-2xl border border-dashed border-border bg-card py-10 text-center">
             <Search className="mx-auto h-7 w-7 text-muted-foreground" />
@@ -131,7 +119,7 @@ function Stock() {
               <div key={d.id} className="rounded-2xl border border-border bg-card p-4 shadow-card">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">{d.emoji}</span>
+                    <DrinkImage value={d.emoji} size="md" />
                     <div>
                       <p className="text-sm font-bold text-foreground">{d.name}</p>
                       <p className="text-xs text-muted-foreground">{d.size} · {d.category}</p>

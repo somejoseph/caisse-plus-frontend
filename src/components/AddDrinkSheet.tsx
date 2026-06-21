@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { Camera, ImageIcon, X } from "lucide-react";
 import { toast } from "sonner";
 import { BottomSheet, Field, inputClass } from "@/components/BottomSheet";
 import { CATEGORIES, type Category } from "@/lib/mock-data";
-import { useStore } from "@/lib/store";
-
-const EMOJIS = ["🍺", "🍾", "🍷", "🥤", "💧", "🥃", "🍶", "🧃"];
+import { createDrinkApi } from "@/lib/graphql/operations";
+import { CATEGORY_KEY } from "@/lib/graphql/adapters";
+import { uploadImage } from "@/lib/upload";
 
 export function AddDrinkSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { addDrink } = useStore();
+  const qc = useQueryClient();
+  const createMut = useMutation({
+    mutationFn: createDrinkApi,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["drinks"] }),
+  });
+
   const [name, setName] = useState("");
   const [category, setCategory] = useState<Category>("Bières");
   const [size, setSize] = useState("");
@@ -15,66 +22,117 @@ export function AddDrinkSheet({ open, onClose }: { open: boolean; onClose: () =>
   const [cost, setCost] = useState("");
   const [stock, setStock] = useState("");
   const [threshold, setThreshold] = useState("");
-  const [emoji, setEmoji] = useState("🍺");
+  const [photoPreview, setPhotoPreview] = useState<string>("");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
-  const reset = () => {
-    setName("");
-    setSize("");
-    setPrice("");
-    setCost("");
-    setStock("");
-    setThreshold("");
-    setEmoji("🍺");
-    setCategory("Bières");
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setPhotoPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = "";
   };
 
-  const submit = () => {
+  const clearPhoto = () => { setPhotoPreview(""); setPhotoFile(null); };
+
+  const reset = () => {
+    setName(""); setSize(""); setPrice(""); setCost(""); setStock(""); setThreshold("");
+    clearPhoto(); setCategory("Bières");
+  };
+
+  const submit = async () => {
     if (!name.trim() || !price) {
       toast.error("Nom et prix de vente sont obligatoires.");
       return;
     }
-    addDrink({
-      name: name.trim(),
-      category,
-      size: size.trim() || "—",
-      price: parseInt(price || "0", 10),
-      cost: parseInt(cost || "0", 10),
-      stock: parseInt(stock || "0", 10),
-      threshold: parseInt(threshold || "0", 10),
-      emoji,
-    });
-    toast.success(`${name.trim()} ajoutée au catalogue`);
-    reset();
-    onClose();
+
+    let imageData: string | undefined;
+    if (photoFile) {
+      setUploading(true);
+      try {
+        imageData = await uploadImage(photoFile, "drinks");
+      } catch {
+        toast.error("Impossible d'uploader la photo — boisson ajoutée sans image.");
+      } finally {
+        setUploading(false);
+      }
+    }
+
+    try {
+      await createMut.mutateAsync({
+        name: name.trim(),
+        category: CATEGORY_KEY[category] ?? category,
+        size: size.trim() || "—",
+        price: parseInt(price || "0", 10),
+        cost: parseInt(cost || "0", 10) || undefined,
+        stock: parseInt(stock || "0", 10) || undefined,
+        threshold: parseInt(threshold || "0", 10) || undefined,
+        imageData,
+      });
+      toast.success(`${name.trim()} ajoutée au catalogue`);
+      reset();
+      onClose();
+    } catch {
+      toast.error("Impossible d'ajouter la boisson.");
+    }
   };
+
+  const busy = uploading || createMut.isPending;
 
   return (
     <BottomSheet open={open} onClose={onClose} title="Nouvelle boisson" subtitle="Ajouter une référence au catalogue">
       <div className="space-y-3">
-        <div className="flex flex-wrap gap-2">
-          {EMOJIS.map((e) => (
+        <div className="flex flex-col items-center gap-3 py-1">
+          {photoPreview ? (
+            <div className="relative">
+              <img src={photoPreview} alt="Aperçu" className="h-24 w-24 rounded-2xl object-cover shadow-card" />
+              <button
+                type="button"
+                onClick={clearPhoto}
+                className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-destructive text-white shadow-elevated"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex h-24 w-24 items-center justify-center rounded-2xl border-2 border-dashed border-border bg-muted/50">
+              <ImageIcon className="h-8 w-8 text-muted-foreground/40" />
+            </div>
+          )}
+          <div className="flex gap-2">
             <button
-              key={e}
-              onClick={() => setEmoji(e)}
-              className={`flex h-10 w-10 items-center justify-center rounded-xl border text-xl ${
-                emoji === e ? "border-primary bg-primary/10" : "border-border bg-card"
-              }`}
+              type="button"
+              onClick={() => cameraRef.current?.click()}
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground shadow-card active:scale-95"
             >
-              {e}
+              <Camera className="h-3.5 w-3.5" /> Appareil photo
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => galleryRef.current?.click()}
+              className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-3 py-2 text-xs font-semibold text-foreground shadow-card active:scale-95"
+            >
+              <ImageIcon className="h-3.5 w-3.5" /> Galerie
+            </button>
+          </div>
         </div>
-        <Field label="Nom">
+
+        <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
+        <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+
+        <Field label="Nom de la boisson">
           <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="Ex. Flag" />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Catégorie">
             <select value={category} onChange={(e) => setCategory(e.target.value as Category)} className={inputClass}>
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
+              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </Field>
           <Field label="Contenance">
@@ -99,9 +157,10 @@ export function AddDrinkSheet({ open, onClose }: { open: boolean; onClose: () =>
         </div>
         <button
           onClick={submit}
-          className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99]"
+          disabled={busy}
+          className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99] disabled:opacity-60"
         >
-          Ajouter la boisson
+          {uploading ? "Upload photo…" : createMut.isPending ? "Ajout en cours…" : "Ajouter la boisson"}
         </button>
       </div>
     </BottomSheet>

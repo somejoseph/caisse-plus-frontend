@@ -1,25 +1,27 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ClipboardCheck, Save } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
+import { DrinkImage } from "@/components/DrinkImage";
 import { cn } from "@/lib/utils";
 import { fcfa } from "@/lib/mock-data";
-import { useStore } from "@/lib/store";
+import { getDrinksApi, saveInventoryApi } from "@/lib/graphql/operations";
 
 export const Route = createFileRoute("/inventaire")({
-  head: () => ({
-    meta: [
-      { title: "Inventaire — Caisse+" },
-      { name: "description", content: "Comptez votre stock physique et détectez les écarts avec le stock théorique." },
-    ],
-  }),
   component: Inventaire,
 });
 
 function Inventaire() {
-  const { drinks } = useStore();
+  const qc = useQueryClient();
+  const { data: drinks = [] } = useQuery({ queryKey: ["drinks"], queryFn: () => getDrinksApi() });
   const [counted, setCounted] = useState<Record<string, string>>({});
+
+  const saveMut = useMutation({
+    mutationFn: saveInventoryApi,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["drinks"] }),
+  });
 
   const set = (id: string, v: string) => setCounted((c) => ({ ...c, [id]: v.replace(/\D/g, "") }));
 
@@ -31,15 +33,18 @@ function Inventaire() {
   const totalEcartValue = ecarts.reduce((s, e) => (e.diff ? s + e.diff * e.drink.cost : s), 0);
   const counts = ecarts.filter((e) => e.diff !== null).length;
 
-  const save = () => {
-    if (counts === 0) {
-      toast.error("Saisis au moins un comptage.");
-      return;
-    }
-    toast.success("Inventaire enregistré", {
-      description: `${counts} référence(s) comptée(s) · écart ${fcfa(totalEcartValue)}`,
-    });
-    setCounted({});
+  const save = async () => {
+    if (counts === 0) { toast.error("Saisis au moins un comptage."); return; }
+    try {
+      const items = ecarts
+        .filter((e) => e.diff !== null)
+        .map((e) => ({ drinkId: e.drink.id, countedStock: parseInt(counted[e.drink.id], 10) }));
+      const result = await saveMut.mutateAsync({ items, applyAdjustment: true });
+      toast.success("Inventaire enregistré", {
+        description: `${result.itemsCounted} référence(s) · écart ${fcfa(result.totalEcartValue)}`,
+      });
+      setCounted({});
+    } catch { toast.error("Impossible d'enregistrer l'inventaire."); }
   };
 
   return (
@@ -64,7 +69,7 @@ function Inventaire() {
           {ecarts.map(({ drink: d, diff }) => (
             <div key={d.id} className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">{d.emoji}</span>
+                <DrinkImage value={d.emoji} size="md" />
                 <div>
                   <p className="text-sm font-bold text-foreground">{d.name}</p>
                   <p className="text-xs text-muted-foreground">Théorique : {d.stock}</p>
@@ -73,8 +78,7 @@ function Inventaire() {
               <div className="flex items-center gap-3">
                 {diff !== null && diff !== 0 && (
                   <span className={cn("text-xs font-bold tabular-nums", diff > 0 ? "text-success" : "text-destructive")}>
-                    {diff > 0 ? "+" : ""}
-                    {diff}
+                    {diff > 0 ? "+" : ""}{diff}
                   </span>
                 )}
                 <input
@@ -91,9 +95,10 @@ function Inventaire() {
 
         <button
           onClick={save}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99]"
+          disabled={saveMut.isPending}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99] disabled:opacity-60"
         >
-          <Save className="h-5 w-5" /> Enregistrer l'inventaire
+          <Save className="h-5 w-5" /> {saveMut.isPending ? "Enregistrement…" : "Enregistrer l'inventaire"}
         </button>
       </div>
     </AppLayout>

@@ -1,16 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, CheckCheck, AlertTriangle, Info, CheckCircle2, OctagonAlert } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { cn } from "@/lib/utils";
-import { useStore, type NotifTone } from "@/lib/store";
+import {
+  getNotificationsApi, getUnreadCountApi, markNotificationReadApi, markAllNotificationsReadApi,
+} from "@/lib/graphql/operations";
+import type { NotifTone } from "@/lib/store";
 
 export const Route = createFileRoute("/notifications")({
-  head: () => ({
-    meta: [
-      { title: "Notifications — Caisse+" },
-      { name: "description", content: "Alertes de stock, ventes et activité de votre établissement en temps réel." },
-    ],
-  }),
   component: Notifications,
 });
 
@@ -22,7 +20,32 @@ const toneStyle: Record<NotifTone, { wrap: string; icon: typeof Info }> = {
 };
 
 function Notifications() {
-  const { notifications, unreadCount, markRead, markAllRead } = useStore();
+  const qc = useQueryClient();
+
+  const { data: notifications = [] } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => getNotificationsApi(50),
+  });
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ["unreadCount"],
+    queryFn: getUnreadCountApi,
+  });
+
+  const markReadMut = useMutation({
+    mutationFn: markNotificationReadApi,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["notifications"] });
+      void qc.invalidateQueries({ queryKey: ["unreadCount"] });
+    },
+  });
+
+  const markAllReadMut = useMutation({
+    mutationFn: markAllNotificationsReadApi,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["notifications"] });
+      void qc.invalidateQueries({ queryKey: ["unreadCount"] });
+    },
+  });
 
   return (
     <AppLayout>
@@ -36,8 +59,9 @@ function Notifications() {
           </div>
           {unreadCount > 0 && (
             <button
-              onClick={markAllRead}
-              className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground"
+              onClick={() => markAllReadMut.mutate()}
+              disabled={markAllReadMut.isPending}
+              className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground disabled:opacity-60"
             >
               <CheckCheck className="h-3.5 w-3.5" /> Tout lire
             </button>
@@ -57,7 +81,7 @@ function Notifications() {
             return (
               <button
                 key={n.id}
-                onClick={() => markRead(n.id)}
+                onClick={() => !n.read && markReadMut.mutate(n.id)}
                 className={cn(
                   "flex w-full items-start gap-3 rounded-2xl border px-4 py-3 text-left shadow-card transition-colors",
                   n.read ? "border-border bg-card" : "border-primary/30 bg-primary/5",

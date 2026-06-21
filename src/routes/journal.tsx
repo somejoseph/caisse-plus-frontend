@@ -1,22 +1,19 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, Trophy, Clock, FileDown, Share2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
+import { DrinkImage } from "@/components/DrinkImage";
 import { BottomSheet, Field } from "@/components/BottomSheet";
 import { cn } from "@/lib/utils";
 import { fcfa, WEEK_SALES } from "@/lib/mock-data";
 import { useStore } from "@/lib/store";
+import { getSalesApi, getDrinksApi } from "@/lib/graphql/operations";
 import { SectionTitle, MethodBadge } from "./index";
 import { downloadReportPDF, shareReportPDF, type ReportSection } from "@/lib/export-pdf";
 
 export const Route = createFileRoute("/journal")({
-  head: () => ({
-    meta: [
-      { title: "Journal & rapports — Caisse+" },
-      { name: "description", content: "Historique des ventes, top boissons rentables et performance par période." },
-    ],
-  }),
   component: Journal,
 });
 
@@ -25,20 +22,24 @@ const dataTypes = ["Synthèse", "Ventes détaillées", "Boissons rentables", "To
 
 function Journal() {
   const [period, setPeriod] = useState<(typeof periods)[number]>("Jour");
-  const { drinks, sales, establishment } = useStore();
+  const { establishment, currentRole } = useStore();
+  const isOwner = currentRole === "Propriétaire";
+
+  const { data: sales = [] } = useQuery({ queryKey: ["sales"], queryFn: () => getSalesApi(200) });
+  const { data: drinks = [] } = useQuery({ queryKey: ["drinks"], queryFn: () => getDrinksApi() });
 
   const [exportOpen, setExportOpen] = useState(false);
   const [expPeriod, setExpPeriod] = useState<(typeof periods)[number]>("Jour");
   const [expType, setExpType] = useState<(typeof dataTypes)[number]>("Synthèse");
 
-  const ca = 322100;
-  const benefice = 118400;
+  const ca = sales.reduce((s, v) => s + v.total, 0);
+  const benefice = Math.round(ca * 0.367);
 
   const topDrinks = [...drinks]
     .map((d) => ({ ...d, margin: d.price - d.cost }))
     .sort((a, b) => b.margin - a.margin)
     .slice(0, 5);
-  const maxBar = Math.max(...WEEK_SALES.map((w) => w.value));
+  const maxBar = Math.max(...WEEK_SALES.map((w) => w.value), 1);
 
   const buildSections = (type: (typeof dataTypes)[number]): ReportSection[] => {
     const sections: ReportSection[] = [];
@@ -53,14 +54,7 @@ function Journal() {
           { header: "Mode", key: "method", width: 1.3 },
           { header: "Montant", key: "total", align: "right", width: 1.1 },
         ],
-        rows: sales.map((s) => ({
-          id: s.id,
-          table: s.table,
-          server: s.server,
-          time: s.time,
-          method: s.method,
-          total: fcfa(s.total),
-        })),
+        rows: sales.map((s) => ({ id: s.id, table: s.table, server: s.server, time: s.time, method: s.method, total: fcfa(s.total) })),
       });
     }
     if (type === "Boissons rentables" || type === "Tout") {
@@ -73,13 +67,7 @@ function Journal() {
           { header: "Prix", key: "price", align: "right", width: 1 },
           { header: "Marge / unité", key: "margin", align: "right", width: 1.2 },
         ],
-        rows: topDrinks.map((d, i) => ({
-          rank: String(i + 1),
-          name: d.name,
-          size: d.size,
-          price: fcfa(d.price),
-          margin: fcfa(d.margin),
-        })),
+        rows: topDrinks.map((d, i) => ({ rank: String(i + 1), name: d.name, size: d.size, price: fcfa(d.price), margin: fcfa(d.margin) })),
       });
     }
     if (type === "Synthèse" || type === "Tout") {
@@ -95,17 +83,26 @@ function Journal() {
     return sections;
   };
 
+  const estabName = establishment?.name ?? "Caisse+";
+
   const meta = (type: (typeof dataTypes)[number], per: (typeof periods)[number]) => ({
     title: "Journal & rapports",
-    establishment: establishment.name,
+    establishment: estabName,
     period: per,
     dataType: type,
-    summary: [
-      { label: "Chiffre d'affaires", value: fcfa(ca) },
-      { label: "Bénéfice net", value: fcfa(benefice) },
-      { label: "Marge", value: "36,7 %" },
-    ],
+    summary: isOwner
+      ? [
+          { label: "Chiffre d'affaires", value: fcfa(ca) },
+          { label: "Bénéfice net", value: fcfa(benefice) },
+          { label: "Marge", value: "36,7 %" },
+        ]
+      : [
+          { label: "Chiffre d'affaires", value: fcfa(ca) },
+          { label: "Nombre de ventes", value: String(sales.length) },
+        ],
   });
+
+  const visibleDataTypes = isOwner ? dataTypes : (["Synthèse", "Ventes détaillées", "Tout"] as const);
 
   const handleDownload = () => {
     downloadReportPDF(meta(expType, expPeriod), buildSections(expType));
@@ -132,49 +129,48 @@ function Journal() {
             <p className="text-xs text-muted-foreground">Suivi détaillé de l'activité</p>
           </div>
           <button
-            onClick={() => {
-              setExpPeriod(period);
-              setExportOpen(true);
-            }}
+            onClick={() => { setExpPeriod(period); setExportOpen(true); }}
             className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-2 text-xs font-bold text-primary-foreground shadow-card active:scale-[0.98]"
           >
             <FileDown className="h-4 w-4" /> Export PDF
           </button>
         </div>
 
-        {/* Period tabs */}
         <div className="flex rounded-2xl bg-muted p-1">
           {periods.map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={cn(
-                "flex-1 rounded-xl py-2 text-sm font-semibold transition-colors",
-                period === p ? "bg-card text-foreground shadow-card" : "text-muted-foreground",
-              )}
+              className={cn("flex-1 rounded-xl py-2 text-sm font-semibold transition-colors", period === p ? "bg-card text-foreground shadow-card" : "text-muted-foreground")}
             >
               {p}
             </button>
           ))}
         </div>
 
-        {/* Summary */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
             <p className="text-xs text-muted-foreground">Chiffre d'affaires</p>
             <p className="mt-0.5 font-display text-xl font-extrabold tabular-nums text-foreground">{fcfa(ca)}</p>
             <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-success">
-              <TrendingUp className="h-3 w-3" /> +18 %
+              <TrendingUp className="h-3 w-3" /> {sales.length} ventes
             </span>
           </div>
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
-            <p className="text-xs text-muted-foreground">Bénéfice net</p>
-            <p className="mt-0.5 font-display text-xl font-extrabold tabular-nums text-primary">{fcfa(benefice)}</p>
-            <span className="mt-1 inline-block text-[11px] text-muted-foreground">Marge 36,7 %</span>
-          </div>
+          {isOwner ? (
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
+              <p className="text-xs text-muted-foreground">Bénéfice net estimé</p>
+              <p className="mt-0.5 font-display text-xl font-extrabold tabular-nums text-primary">{fcfa(benefice)}</p>
+              <span className="mt-1 inline-block text-[11px] text-muted-foreground">Marge ~36,7 %</span>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
+              <p className="text-xs text-muted-foreground">Nombre de ventes</p>
+              <p className="mt-0.5 font-display text-xl font-extrabold tabular-nums text-foreground">{sales.length}</p>
+              <span className="mt-1 inline-block text-[11px] text-muted-foreground">Transactions du jour</span>
+            </div>
+          )}
         </div>
 
-        {/* Chart */}
         <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
           <SectionTitle title="Ventes par jour" />
           <div className="flex h-32 items-end justify-between gap-2">
@@ -191,35 +187,33 @@ function Journal() {
           </div>
         </section>
 
-        {/* Top drinks */}
-        <section>
-          <div className="mb-3 flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-secondary" />
-            <SectionTitle title="Top boissons rentables" noMargin />
-          </div>
-          <div className="space-y-2">
-            {topDrinks.map((d, i) => (
-              <div key={d.id} className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">
-                    {i + 1}
-                  </span>
-                  <span className="text-xl">{d.emoji}</span>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{d.name}</p>
-                    <p className="text-xs text-muted-foreground">{d.size}</p>
+        {isOwner && (
+          <section>
+            <div className="mb-3 flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-secondary" />
+              <SectionTitle title="Top boissons rentables" noMargin />
+            </div>
+            <div className="space-y-2">
+              {topDrinks.map((d, i) => (
+                <div key={d.id} className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">{i + 1}</span>
+                    <DrinkImage value={d.emoji} size="sm" />
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{d.name}</p>
+                      <p className="text-xs text-muted-foreground">{d.size}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold tabular-nums text-success">+{fcfa(d.margin)}</p>
+                    <p className="text-[11px] text-muted-foreground">marge / unité</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold tabular-nums text-success">+{fcfa(d.margin)}</p>
-                  <p className="text-[11px] text-muted-foreground">marge / unité</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        )}
 
-        {/* History */}
         <section>
           <div className="mb-3 flex items-center gap-2">
             <Clock className="h-5 w-5 text-primary" />
@@ -238,16 +232,14 @@ function Journal() {
                 </div>
               </div>
             ))}
+            {sales.length === 0 && (
+              <p className="py-6 text-center text-sm text-muted-foreground">Aucune vente enregistrée.</p>
+            )}
           </div>
         </section>
       </div>
 
-      <BottomSheet
-        open={exportOpen}
-        onClose={() => setExportOpen(false)}
-        title="Exporter en PDF"
-        subtitle="Choisis la période et le type de données"
-      >
+      <BottomSheet open={exportOpen} onClose={() => setExportOpen(false)} title="Exporter en PDF" subtitle="Choisis la période et le type de données">
         <div className="space-y-4">
           <Field label="Période">
             <div className="flex gap-2">
@@ -256,10 +248,7 @@ function Journal() {
                   key={p}
                   type="button"
                   onClick={() => setExpPeriod(p)}
-                  className={cn(
-                    "flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors",
-                    expPeriod === p ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground",
-                  )}
+                  className={cn("flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors", expPeriod === p ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground")}
                 >
                   {p}
                 </button>
@@ -269,15 +258,12 @@ function Journal() {
 
           <Field label="Type de données">
             <div className="grid grid-cols-2 gap-2">
-              {dataTypes.map((t) => (
+              {visibleDataTypes.map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setExpType(t)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition-colors",
-                    expType === t ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground",
-                  )}
+                  className={cn("flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition-colors", expType === t ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground")}
                 >
                   <FileText className="h-4 w-4 shrink-0" /> {t}
                 </button>
@@ -287,7 +273,7 @@ function Journal() {
 
           <div className="rounded-2xl bg-muted p-4 text-xs text-muted-foreground">
             Rapport <span className="font-bold text-foreground">{expType}</span> sur la période{" "}
-            <span className="font-bold text-foreground">{expPeriod}</span> pour {establishment.name}.
+            <span className="font-bold text-foreground">{expPeriod}</span> pour {estabName}.
           </div>
 
           <div className="flex gap-2">

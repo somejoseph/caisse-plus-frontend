@@ -1,27 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { ShieldCheck, ShieldAlert, Eye, Trash2, Pencil, DoorOpen } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { cn } from "@/lib/utils";
+import { getAuditLogApi, type AuditEntry } from "@/lib/graphql/operations";
+import { fmtTime } from "@/lib/graphql/adapters";
 
 export const Route = createFileRoute("/audit")({
-  head: () => ({
-    meta: [
-      { title: "Anti-fraude & audit — Caisse+" },
-      { name: "description", content: "Journal d'audit : suppressions, modifications de prix et événements sensibles surveillés." },
-    ],
-  }),
   component: Audit,
 });
 
 type Level = "info" | "alert" | "danger";
-
-const events: { id: string; icon: typeof Eye; label: string; detail: string; user: string; time: string; level: Level }[] = [
-  { id: "a1", icon: Trash2, label: "Vente annulée", detail: "Commande #1036 (12 500 F) supprimée", user: "Yao", time: "21:18", level: "danger" },
-  { id: "a2", icon: Pencil, label: "Prix modifié", detail: "Heineken 33cl : 1 500 → 1 300 F", user: "Awa", time: "20:42", level: "alert" },
-  { id: "a3", icon: DoorOpen, label: "Tiroir-caisse ouvert", detail: "Ouverture sans vente associée", user: "Fatou", time: "20:05", level: "alert" },
-  { id: "a4", icon: Eye, label: "Remise appliquée", detail: "Table 2 : -10% (motif : habitué)", user: "Awa", time: "19:31", level: "info" },
-  { id: "a5", icon: Pencil, label: "Stock ajusté", detail: "Castel : +6 (correction inventaire)", user: "Awa", time: "18:50", level: "info" },
-];
 
 const levelStyle: Record<Level, string> = {
   info: "bg-primary/10 text-primary",
@@ -29,8 +18,38 @@ const levelStyle: Record<Level, string> = {
   danger: "bg-destructive/10 text-destructive",
 };
 
+const LEVEL_MAP: Record<string, Level> = {
+  info: "info",
+  warning: "alert",
+  alert: "alert",
+  danger: "danger",
+  error: "danger",
+};
+
+const EVENT_ICONS: Record<string, typeof Eye> = {
+  delete: Trash2,
+  annulation: Trash2,
+  price_change: Pencil,
+  modification: Pencil,
+  drawer_open: DoorOpen,
+  discount: Eye,
+  stock_adjust: Pencil,
+};
+
+function getIcon(eventType: string) {
+  for (const [key, icon] of Object.entries(EVENT_ICONS)) {
+    if (eventType.toLowerCase().includes(key)) return icon;
+  }
+  return Eye;
+}
+
 function Audit() {
-  const alerts = events.filter((e) => e.level !== "info").length;
+  const { data: events = [] } = useQuery({
+    queryKey: ["auditLog"],
+    queryFn: () => getAuditLogApi(50),
+  });
+
+  const alerts = events.filter((e) => (LEVEL_MAP[e.level] ?? "info") !== "info").length;
 
   return (
     <AppLayout>
@@ -57,22 +76,33 @@ function Audit() {
           </div>
         </div>
 
+        {events.length === 0 && (
+          <div className="flex flex-col items-center gap-2 py-12 text-center text-muted-foreground">
+            <ShieldCheck className="h-10 w-10 opacity-40" />
+            <p className="text-sm font-semibold">Aucun événement enregistré</p>
+          </div>
+        )}
+
         <div className="space-y-2">
-          {events.map((e) => (
-            <div key={e.id} className="flex items-start gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
-              <span className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full", levelStyle[e.level])}>
-                <e.icon className="h-4.5 w-4.5" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-bold text-foreground">{e.label}</p>
-                  <span className="shrink-0 text-[11px] text-muted-foreground">{e.time}</span>
+          {events.map((e: AuditEntry) => {
+            const level = LEVEL_MAP[e.level] ?? "info";
+            const Icon = getIcon(e.eventType);
+            return (
+              <div key={e.id} className="flex items-start gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
+                <span className={cn("mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full", levelStyle[level])}>
+                  <Icon className="h-4.5 w-4.5" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-bold text-foreground">{e.label}</p>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">{fmtTime(e.eventTime)}</span>
+                  </div>
+                  {e.detail && <p className="mt-0.5 text-xs text-muted-foreground">{e.detail}</p>}
+                  {e.userName && <p className="mt-1 text-[11px] font-semibold text-muted-foreground">Par {e.userName}</p>}
                 </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">{e.detail}</p>
-                <p className="mt-1 text-[11px] font-semibold text-muted-foreground">Par {e.user}</p>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </AppLayout>

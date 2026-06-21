@@ -1,35 +1,33 @@
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { Plus, Search } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { AddDrinkSheet } from "@/components/AddDrinkSheet";
+import { DrinkImage } from "@/components/DrinkImage";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, fcfa } from "@/lib/mock-data";
+import { getDrinksApi } from "@/lib/graphql/operations";
 import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/catalogue")({
-  head: () => ({
-    meta: [
-      { title: "Catalogue boissons — Caisse+" },
-      { name: "description", content: "Gérez votre carte : prix de vente, coûts et marges de toutes vos boissons." },
-    ],
-  }),
   component: Catalogue,
 });
 
 function Catalogue() {
-  const { drinks } = useStore();
+  const { currentRole } = useStore();
+  const isOwner = currentRole === "Propriétaire";
+  const { data: drinks = [] } = useQuery({ queryKey: ["drinks"], queryFn: () => getDrinksApi() });
+
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState("Toutes");
 
   const filtered = useMemo(
-    () =>
-      drinks.filter(
-        (d) =>
-          (activeCat === "Toutes" || d.category === activeCat) &&
-          d.name.toLowerCase().includes(query.toLowerCase()),
-      ),
+    () => drinks.filter((d) =>
+      (activeCat === "Toutes" || d.category === activeCat) &&
+      d.name.toLowerCase().includes(query.toLowerCase()),
+    ),
     [drinks, query, activeCat],
   );
 
@@ -81,7 +79,7 @@ function Catalogue() {
             return (
               <div key={d.id} className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{d.emoji}</span>
+                  <DrinkImage value={d.emoji} size="md" />
                   <div>
                     <p className="text-sm font-bold text-foreground">{d.name}</p>
                     <p className="text-xs text-muted-foreground">{d.size} · {d.category}</p>
@@ -89,7 +87,9 @@ function Catalogue() {
                 </div>
                 <div className="text-right">
                   <p className="font-display text-base font-extrabold tabular-nums text-primary">{fcfa(d.price)}</p>
-                  <p className="text-[11px] font-semibold text-success">+{fcfa(margin)} · {pct}%</p>
+                  {isOwner && (
+                    <p className="text-[11px] font-semibold text-success">+{fcfa(margin)} · {pct}%</p>
+                  )}
                 </div>
               </div>
             );

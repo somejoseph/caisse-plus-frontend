@@ -1,23 +1,24 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Phone, User2, Tag, Truck, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { BottomSheet, Field, inputClass } from "@/components/BottomSheet";
-import { useStore } from "@/lib/store";
+import { getSuppliersApi, createSupplierApi } from "@/lib/graphql/operations";
 
 export const Route = createFileRoute("/fournisseurs")({
-  head: () => ({
-    meta: [
-      { title: "Fournisseurs — Caisse+" },
-      { name: "description", content: "Gérez vos fournisseurs de boissons et associez-les à vos réceptions de stock." },
-    ],
-  }),
   component: Fournisseurs,
 });
 
 function Fournisseurs() {
-  const { suppliers, addSupplier } = useStore();
+  const qc = useQueryClient();
+  const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: getSuppliersApi });
+  const createMut = useMutation({
+    mutationFn: createSupplierApi,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["suppliers"] }),
+  });
+
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
@@ -25,25 +26,19 @@ function Fournisseurs() {
   const [category, setCategory] = useState("");
   const [note, setNote] = useState("");
 
-  const submit = () => {
-    if (!name.trim()) {
-      toast.error("Le nom du fournisseur est obligatoire.");
-      return;
-    }
-    addSupplier({
-      name: name.trim(),
-      contact: contact.trim() || "—",
-      phone: phone.trim() || "—",
-      category: category.trim() || "Divers",
-      note: note.trim() || undefined,
-    });
-    toast.success(`${name.trim()} ajouté`);
-    setName("");
-    setContact("");
-    setPhone("");
-    setCategory("");
-    setNote("");
-    setOpen(false);
+  const submit = async () => {
+    if (!name.trim()) { toast.error("Le nom du fournisseur est obligatoire."); return; }
+    try {
+      await createMut.mutateAsync({
+        name: name.trim(),
+        contact: contact.trim() || undefined,
+        phone: phone.trim() || undefined,
+        category: category.trim() || "Divers",
+        note: note.trim() || undefined,
+      });
+      toast.success(`${name.trim()} ajouté`);
+      setName(""); setContact(""); setPhone(""); setCategory(""); setNote(""); setOpen(false);
+    } catch { toast.error("Impossible d'enregistrer le fournisseur."); }
   };
 
   return (
@@ -90,17 +85,9 @@ function Fournisseurs() {
                 </span>
               </div>
               <div className="mt-2 space-y-1 text-xs text-muted-foreground">
-                <p className="flex items-center gap-2">
-                  <User2 className="h-3.5 w-3.5 text-primary" /> {s.contact}
-                </p>
-                <p className="flex items-center gap-2">
-                  <Phone className="h-3.5 w-3.5 text-primary" /> {s.phone}
-                </p>
-                {s.note && (
-                  <p className="flex items-center gap-2">
-                    <StickyNote className="h-3.5 w-3.5 text-primary" /> {s.note}
-                  </p>
-                )}
+                {s.contact && <p className="flex items-center gap-2"><User2 className="h-3.5 w-3.5 text-primary" /> {s.contact}</p>}
+                {s.phone && <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-primary" /> {s.phone}</p>}
+                {s.note && <p className="flex items-center gap-2"><StickyNote className="h-3.5 w-3.5 text-primary" /> {s.note}</p>}
               </div>
             </div>
           ))}
@@ -126,9 +113,10 @@ function Fournisseurs() {
           </Field>
           <button
             onClick={submit}
-            className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99]"
+            disabled={createMut.isPending}
+            className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99] disabled:opacity-60"
           >
-            Enregistrer le fournisseur
+            {createMut.isPending ? "Enregistrement…" : "Enregistrer le fournisseur"}
           </button>
         </div>
       </BottomSheet>

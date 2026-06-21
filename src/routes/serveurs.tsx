@@ -1,30 +1,38 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Phone, Plus, Users, Pencil, Calendar, BadgeCheck } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Phone, Plus, Users, Pencil, Calendar, BadgeCheck, Lock, Trash2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { BottomSheet, Field, inputClass } from "@/components/BottomSheet";
 import { cn } from "@/lib/utils";
-import { fcfa } from "@/lib/mock-data";
-import { useStore, type ServerItem, type ServerRole } from "@/lib/store";
+import { fcfa, type ServerRole } from "@/lib/mock-data";
+import {
+  getServersApi, getTablesApi, getUsersApi, createServerApi, updateServerApi,
+  createTableApi, updateTableStatusApi, createGerantApi, deactivateUserApi, updateUserApi,
+  type GerantUser,
+} from "@/lib/graphql/operations";
+import { SERVER_ROLE_KEY } from "@/lib/graphql/adapters";
+import { useStore } from "@/lib/store";
+import type { ServerItem, TableStatus } from "@/lib/store";
 
 export const Route = createFileRoute("/serveurs")({
-  head: () => ({
-    meta: [
-      { title: "Serveurs & tables — Caisse+" },
-      { name: "description", content: "Gestion des serveurs et plan de salle visuel avec statut des tables." },
-    ],
-  }),
   component: Serveurs,
 });
 
-const tabs = ["Plan de salle", "Serveurs"] as const;
+const BASE_TABS = ["Plan de salle", "Serveurs"] as const;
 const roles: ServerRole[] = ["Serveur(e)", "Gérant(e)"];
 
 const statusStyle: Record<string, string> = {
   Libre: "border-success/40 bg-success/10 text-success",
   Occupée: "border-primary/40 bg-primary/10 text-primary",
   Addition: "border-secondary/50 bg-secondary/15 text-secondary",
+};
+
+const STATUS_CYCLE: Record<TableStatus, TableStatus> = {
+  Libre: "Occupée",
+  Occupée: "Addition",
+  Addition: "Libre",
 };
 
 function fmtDate(d: string) {
@@ -35,9 +43,56 @@ function fmtDate(d: string) {
 }
 
 function Serveurs() {
-  const { servers, tables, addServer, editServer, toggleServer, addTable, cycleTableStatus } = useStore();
-  const [tab, setTab] = useState<(typeof tabs)[number]>("Plan de salle");
+  const qc = useQueryClient();
+  const { currentRole } = useStore();
+  const isOwner = currentRole === "Propriétaire";
+  const tabs = isOwner ? [...BASE_TABS, "Gérants"] : BASE_TABS;
+  const [tab, setTab] = useState<string>("Plan de salle");
 
+  const { data: servers = [] } = useQuery({ queryKey: ["servers"], queryFn: getServersApi });
+  const { data: tables = [] } = useQuery({ queryKey: ["tables"], queryFn: getTablesApi });
+  const { data: gerants = [] } = useQuery({
+    queryKey: ["users"],
+    queryFn: getUsersApi,
+    enabled: isOwner,
+  });
+
+  const createServerMut = useMutation({
+    mutationFn: createServerApi,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["servers"] }),
+  });
+  const updateServerMut = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateServerApi>[1] }) =>
+      updateServerApi(id, input),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["servers"] }),
+  });
+  const createTableMut = useMutation({
+    mutationFn: createTableApi,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["tables"] }),
+  });
+  const updateTableStatusMut = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: TableStatus }) => updateTableStatusApi(id, status),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["tables"] }),
+  });
+  const createGerantMut = useMutation({
+    mutationFn: createGerantApi,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["users"] }),
+  });
+  const toggleGerantMut = useMutation({
+    mutationFn: ({ id, active }: { id: string; active: boolean }) => updateUserApi(id, { active }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["users"] }),
+  });
+  const removeGerantMut = useMutation({
+    mutationFn: deactivateUserApi,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["users"] }),
+  });
+
+  // Gérant form
+  const [gerantOpen, setGerantOpen] = useState(false);
+  const [gName, setGName] = useState("");
+  const [gPin, setGPin] = useState("");
+
+  // Server form
   const [serverOpen, setServerOpen] = useState(false);
   const [editing, setEditing] = useState<ServerItem | null>(null);
   const [sName, setSName] = useState("");
@@ -45,55 +100,54 @@ function Serveurs() {
   const [sRole, setSRole] = useState<ServerRole>("Serveur(e)");
   const [sDate, setSDate] = useState(new Date().toISOString().slice(0, 10));
 
+  // Table form
   const [tableOpen, setTableOpen] = useState(false);
   const [tName, setTName] = useState("");
   const [tSeats, setTSeats] = useState("4");
 
   const openAdd = () => {
-    setEditing(null);
-    setSName("");
-    setSPhone("");
-    setSRole("Serveur(e)");
-    setSDate(new Date().toISOString().slice(0, 10));
-    setServerOpen(true);
+    setEditing(null); setSName(""); setSPhone(""); setSRole("Serveur(e)"); setSDate(new Date().toISOString().slice(0, 10)); setServerOpen(true);
   };
-
   const openEdit = (s: ServerItem) => {
-    setEditing(s);
-    setSName(s.name);
-    setSPhone(s.phone === "—" ? "" : s.phone);
-    setSRole(s.role);
-    setSDate(s.startDate || new Date().toISOString().slice(0, 10));
-    setServerOpen(true);
+    setEditing(s); setSName(s.name); setSPhone(s.phone === "—" ? "" : s.phone); setSRole(s.role); setSDate(s.startDate || new Date().toISOString().slice(0, 10)); setServerOpen(true);
   };
 
-  const submitServer = () => {
-    if (!sName.trim()) {
-      toast.error("Le nom du serveur est obligatoire.");
-      return;
-    }
-    const data = { name: sName.trim(), phone: sPhone.trim() || "—", role: sRole, startDate: sDate };
-    if (editing) {
-      editServer(editing.id, data);
-      toast.success(`${data.name} mis à jour`);
-    } else {
-      addServer(data);
-      toast.success(`${data.name} ajouté`);
-    }
-    setServerOpen(false);
+  const submitServer = async () => {
+    if (!sName.trim()) { toast.error("Le nom du serveur est obligatoire."); return; }
+    try {
+      const input = { name: sName.trim(), phone: sPhone.trim() || undefined, role: SERVER_ROLE_KEY[sRole], startDate: sDate };
+      if (editing) {
+        await updateServerMut.mutateAsync({ id: editing.id, input });
+        toast.success(`${sName.trim()} mis à jour`);
+      } else {
+        await createServerMut.mutateAsync(input);
+        toast.success(`${sName.trim()} ajouté`);
+      }
+      setServerOpen(false);
+    } catch { toast.error("Impossible d'enregistrer le serveur."); }
   };
 
-  const submitTable = () => {
+  const submitTable = async () => {
     const seats = parseInt(tSeats || "0", 10);
-    if (!tName.trim() || seats <= 0) {
-      toast.error("Nom et nombre de places sont obligatoires.");
-      return;
-    }
-    addTable({ name: tName.trim(), seats });
-    toast.success(`${tName.trim()} créée`);
-    setTName("");
-    setTSeats("4");
-    setTableOpen(false);
+    if (!tName.trim() || seats <= 0) { toast.error("Nom et nombre de places sont obligatoires."); return; }
+    try {
+      await createTableMut.mutateAsync({ name: tName.trim(), seats });
+      toast.success(`${tName.trim()} créée`);
+      setTName(""); setTSeats("4"); setTableOpen(false);
+    } catch { toast.error("Impossible de créer la table."); }
+  };
+
+  const submitGerant = async () => {
+    if (!gName.trim() || gPin.length < 4) { toast.error("Nom et code PIN à 4 chiffres sont obligatoires."); return; }
+    try {
+      await createGerantMut.mutateAsync({ name: gName.trim(), pin: gPin });
+      toast.success(`Accès créé pour ${gName.trim()}`);
+      setGName(""); setGPin(""); setGerantOpen(false);
+    } catch { toast.error("Impossible de créer l'accès gérant."); }
+  };
+
+  const cycleTable = (id: string, current: TableStatus) => {
+    void updateTableStatusMut.mutateAsync({ id, status: STATUS_CYCLE[current] });
   };
 
   return (
@@ -109,10 +163,7 @@ function Serveurs() {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={cn(
-                "flex-1 rounded-xl py-2 text-sm font-semibold transition-colors",
-                tab === t ? "bg-card text-foreground shadow-card" : "text-muted-foreground",
-              )}
+              className={cn("flex-1 rounded-xl py-2 text-xs font-semibold transition-colors", tab === t ? "bg-card text-foreground shadow-card" : "text-muted-foreground")}
             >
               {t}
             </button>
@@ -141,17 +192,73 @@ function Serveurs() {
               {tables.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => cycleTableStatus(t.id)}
-                  className={cn(
-                    "flex flex-col items-center justify-center rounded-2xl border-2 py-6 shadow-card active:scale-[0.98]",
-                    statusStyle[t.status],
-                  )}
+                  onClick={() => cycleTable(t.id, t.status)}
+                  className={cn("flex flex-col items-center justify-center rounded-2xl border-2 py-6 shadow-card active:scale-[0.98]", statusStyle[t.status])}
                 >
                   <Users className="mb-1 h-5 w-5 opacity-70" />
                   <p className="font-display text-base font-extrabold text-foreground">{t.name}</p>
                   <p className="text-xs text-muted-foreground">{t.seats} places</p>
                   <span className="mt-1 text-[11px] font-bold">{t.status}</span>
                 </button>
+              ))}
+              {tables.length === 0 && (
+                <p className="col-span-2 py-10 text-center text-sm text-muted-foreground">Aucune table configurée.</p>
+              )}
+            </div>
+          </>
+        )}
+
+        {tab === "Gérants" && isOwner && (
+          <>
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
+              <ShieldCheck className="mb-1 h-4 w-4 text-primary" />
+              Les gérants se connectent avec le code établissement <span className="font-bold text-foreground">et leur PIN</span>. Ils n'ont pas accès aux marges ni aux rapports financiers complets.
+            </div>
+            <button
+              onClick={() => { setGName(""); setGPin(""); setGerantOpen(true); }}
+              className="flex w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-border bg-card py-3 text-sm font-bold text-primary"
+            >
+              <Plus className="h-4 w-4" /> Ajouter un gérant
+            </button>
+            <div className="space-y-2">
+              {gerants.length === 0 && (
+                <p className="py-6 text-center text-sm text-muted-foreground">Aucun gérant pour l'instant.</p>
+              )}
+              {gerants.filter((g: GerantUser) => g.role === "Gérant").map((g: GerantUser) => (
+                <div key={g.id} className="rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-gradient text-sm font-bold text-primary-foreground">
+                        {g.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{g.name}</p>
+                        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Lock className="h-3 w-3" /> PIN configuré
+                        </p>
+                      </div>
+                    </div>
+                    <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-bold", g.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground")}>
+                      {g.active ? "Actif" : "Inactif"}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => void toggleGerantMut.mutateAsync({ id: g.id, active: !g.active })}
+                      className={cn("flex-1 rounded-xl py-2 text-xs font-bold transition-colors active:scale-[0.98]", g.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground")}
+                    >
+                      {g.active ? "Désactiver" : "Activer"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        void removeGerantMut.mutateAsync(g.id).then(() => toast.success(`Accès de ${g.name} supprimé`));
+                      }}
+                      className="flex items-center justify-center gap-1 rounded-xl bg-destructive/10 px-4 py-2 text-xs font-bold text-destructive active:scale-[0.98]"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </>
@@ -166,7 +273,7 @@ function Serveurs() {
               <Plus className="h-4 w-4" /> Ajouter un serveur
             </button>
             <div className="space-y-2">
-              {servers.map((s) => (
+              {servers.map((s: ServerItem) => (
                 <div key={s.id} className="rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -189,7 +296,7 @@ function Serveurs() {
                   </div>
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      <Phone className="h-3 w-3" /> {s.phone}
+                      <Phone className="h-3 w-3" /> {s.phone || "—"}
                     </span>
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" /> Depuis {fmtDate(s.startDate)}
@@ -203,11 +310,12 @@ function Serveurs() {
                       <Pencil className="h-3.5 w-3.5" /> Modifier
                     </button>
                     <button
-                      onClick={() => toggleServer(s.id)}
-                      className={cn(
-                        "flex-1 rounded-xl py-2 text-xs font-bold transition-colors active:scale-[0.98]",
-                        s.active ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive",
-                      )}
+                      onClick={() => {
+                        void updateServerMut.mutateAsync({ id: s.id, input: { active: !s.active } }).then(() =>
+                          toast.success(`${s.name} ${s.active ? "désactivé" : "activé"}`)
+                        );
+                      }}
+                      className={cn("flex-1 rounded-xl py-2 text-xs font-bold transition-colors active:scale-[0.98]", s.active ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive")}
                     >
                       {s.active ? "Désactiver" : "Activer"}
                     </button>
@@ -219,12 +327,7 @@ function Serveurs() {
         )}
       </div>
 
-      <BottomSheet
-        open={serverOpen}
-        onClose={() => setServerOpen(false)}
-        title={editing ? "Modifier le serveur" : "Nouveau serveur"}
-        subtitle={editing ? "Mettre à jour les informations" : "Ajouter un membre à l'équipe"}
-      >
+      <BottomSheet open={serverOpen} onClose={() => setServerOpen(false)} title={editing ? "Modifier le serveur" : "Nouveau serveur"} subtitle={editing ? "Mettre à jour les informations" : "Ajouter un membre à l'équipe"}>
         <div className="space-y-3">
           <Field label="Nom complet">
             <input value={sName} onChange={(e) => setSName(e.target.value)} className={inputClass} placeholder="Ex. Yao Kouassi" />
@@ -236,12 +339,7 @@ function Serveurs() {
                   key={r}
                   type="button"
                   onClick={() => setSRole(r)}
-                  className={cn(
-                    "flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors",
-                    sRole === r
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-background text-muted-foreground",
-                  )}
+                  className={cn("flex-1 rounded-xl border py-2.5 text-sm font-semibold transition-colors", sRole === r ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground")}
                 >
                   {r}
                 </button>
@@ -256,7 +354,8 @@ function Serveurs() {
           </Field>
           <button
             onClick={submitServer}
-            className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99]"
+            disabled={createServerMut.isPending || updateServerMut.isPending}
+            className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99] disabled:opacity-60"
           >
             {editing ? "Enregistrer les modifications" : "Ajouter le serveur"}
           </button>
@@ -273,9 +372,41 @@ function Serveurs() {
           </Field>
           <button
             onClick={submitTable}
-            className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99]"
+            disabled={createTableMut.isPending}
+            className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99] disabled:opacity-60"
           >
             Ajouter la table
+          </button>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet open={gerantOpen} onClose={() => setGerantOpen(false)} title="Nouveau gérant" subtitle="Crée un accès gérant avec un code PIN unique">
+        <div className="space-y-3">
+          <Field label="Nom complet">
+            <input value={gName} onChange={(e) => setGName(e.target.value)} className={inputClass} placeholder="Ex. Kouamé Yao" />
+          </Field>
+          <Field label="Code PIN (4 chiffres)">
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3">
+              <Lock className="h-4 w-4 text-muted-foreground" />
+              <input
+                value={gPin}
+                onChange={(e) => setGPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                inputMode="numeric"
+                type="password"
+                placeholder="••••"
+                className="w-full bg-transparent py-2.5 text-sm tracking-[0.4em] outline-none"
+              />
+            </div>
+          </Field>
+          <p className="text-[11px] text-muted-foreground">
+            Ce gérant se connectera avec le code établissement et ce PIN. Il aura accès aux ventes, stock et opérations — pas aux marges ni aux rapports financiers.
+          </p>
+          <button
+            onClick={submitGerant}
+            disabled={createGerantMut.isPending}
+            className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99] disabled:opacity-60"
+          >
+            Créer l'accès gérant
           </button>
         </div>
       </BottomSheet>

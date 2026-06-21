@@ -1,36 +1,53 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Search, Minus, Plus, ShoppingCart, X, ArrowLeft, Trash2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Search, Minus, Plus, ShoppingCart, X, ArrowLeft, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
+import { DrinkImage } from "@/components/DrinkImage";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, fcfa, type Drink } from "@/lib/mock-data";
-import { useStore } from "@/lib/store";
+import {
+  getDrinksApi, getServersApi, getTablesApi, getCurrentDaySessionApi, recordSaleApi,
+} from "@/lib/graphql/operations";
+import { METHOD_KEY } from "@/lib/graphql/adapters";
+import type { TableItem } from "@/lib/store";
 
 export const Route = createFileRoute("/ventes")({
-  head: () => ({
-    meta: [
-      { title: "Point de vente — Caisse+" },
-      { name: "description", content: "Prise de commande : sélection des boissons, panier dynamique et encaissement multi-paiement." },
-    ],
-  }),
   component: Ventes,
 });
 
+const methods = ["Espèces", "Mobile Money", "Crédit"] as const;
+
 function Ventes() {
-  const { drinks, servers, tables, recordSale } = useStore();
+  const qc = useQueryClient();
+  const { data: drinks = [] } = useQuery({ queryKey: ["drinks"], queryFn: () => getDrinksApi() });
+  const { data: servers = [] } = useQuery({ queryKey: ["servers"], queryFn: getServersApi });
+  const { data: tables = [] } = useQuery({ queryKey: ["tables"], queryFn: getTablesApi });
+  const { data: daySession } = useQuery({ queryKey: ["daySession"], queryFn: getCurrentDaySessionApi });
+  const dayOpen = !!daySession;
+
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState<string>("Toutes");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [checkout, setCheckout] = useState(false);
 
-  const filtered = useMemo(() => {
-    return drinks.filter((d) => {
+  const recordSaleMut = useMutation({
+    mutationFn: recordSaleApi,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["sales"] });
+      void qc.invalidateQueries({ queryKey: ["drinks"] });
+    },
+  });
+
+  const filtered = useMemo(
+    () => drinks.filter((d) => {
       const matchCat = activeCat === "Toutes" || d.category === activeCat;
       const matchQ = d.name.toLowerCase().includes(query.toLowerCase());
       return matchCat && matchQ;
-    });
-  }, [drinks, query, activeCat]);
+    }),
+    [drinks, query, activeCat],
+  );
 
   const add = (id: string) => setCart((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }));
   const remove = (id: string) =>
@@ -48,6 +65,8 @@ function Ventes() {
   const total = cartLines.reduce((s, l) => s + l.drink.price * l.qty, 0);
   const count = cartLines.reduce((s, l) => s + l.qty, 0);
 
+  const activeServers = servers.filter((s) => s.active);
+
   return (
     <AppLayout>
       <div className="space-y-4">
@@ -61,7 +80,13 @@ function Ventes() {
           </div>
         </div>
 
-        {/* Search */}
+        {!dayOpen && (
+          <div className="flex items-center gap-2 rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3 text-xs font-semibold text-accent">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Journée non ouverte — ouvrez la caisse depuis l'accueil avant de vendre.
+          </div>
+        )}
+
         <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2.5 shadow-card">
           <Search className="h-5 w-5 text-muted-foreground" />
           <input
@@ -77,7 +102,6 @@ function Ventes() {
           )}
         </div>
 
-        {/* Categories */}
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 no-scrollbar">
           {["Toutes", ...CATEGORIES].map((cat) => (
             <button
@@ -95,7 +119,6 @@ function Ventes() {
           ))}
         </div>
 
-        {/* Grid */}
         <div className="grid grid-cols-2 gap-3">
           {filtered.map((d) => (
             <ProductCard key={d.id} drink={d} qty={cart[d.id] ?? 0} onAdd={() => add(d.id)} onRemove={() => remove(d.id)} />
@@ -106,7 +129,6 @@ function Ventes() {
         </div>
       </div>
 
-      {/* Cart bar */}
       {count > 0 && !checkout && (
         <button
           onClick={() => setCheckout(true)}
@@ -126,16 +148,29 @@ function Ventes() {
         <CheckoutSheet
           lines={cartLines}
           total={total}
-          tables={tables.map((t) => t.name)}
-          servers={servers.filter((s) => s.active).map((s) => s.name)}
+          tables={tables}
+          servers={activeServers.map((s) => s.name)}
           onClose={() => setCheckout(false)}
           onAdd={add}
           onRemove={remove}
-          onConfirm={(table, server, method) => {
-            recordSale({ table, server, total, method, items: count });
-            toast.success("Vente encaissée", { description: `${fcfa(total)} · ${method}` });
-            setCart({});
-            setCheckout(false);
+          onConfirm={async (tableName, serverName, method) => {
+            try {
+              const server = servers.find((s) => s.name === serverName);
+              const table = tables.find((t) => t.name === tableName);
+              await recordSaleMut.mutateAsync({
+                items: cartLines.map((l) => ({ drinkId: l.drink.id, quantity: l.qty })),
+                tableName,
+                serverName,
+                tableId: table?.id,
+                serverId: server?.id,
+                method: METHOD_KEY[method] ?? method,
+              });
+              toast.success("Vente encaissée", { description: `${fcfa(total)} · ${method}` });
+              setCart({});
+              setCheckout(false);
+            } catch {
+              toast.error("Erreur lors de l'enregistrement de la vente.");
+            }
           }}
         />
       )}
@@ -144,40 +179,23 @@ function Ventes() {
 }
 
 function ProductCard({
-  drink,
-  qty,
-  onAdd,
-  onRemove,
+  drink, qty, onAdd, onRemove,
 }: {
-  drink: Drink;
-  qty: number;
-  onAdd: () => void;
-  onRemove: () => void;
+  drink: Drink; qty: number; onAdd: () => void; onRemove: () => void;
 }) {
   const soldOut = drink.stock === 0;
   const low = drink.stock > 0 && drink.stock <= drink.threshold;
   return (
-    <div
-      className={cn(
-        "relative flex flex-col rounded-2xl border bg-card p-3 shadow-card",
-        soldOut ? "border-border opacity-60" : "border-border",
-      )}
-    >
+    <div className={cn("relative flex flex-col rounded-2xl border bg-card p-3 shadow-card", soldOut && "opacity-60")}>
       <div className="flex items-start justify-between">
-        <span className="text-3xl">{drink.emoji}</span>
-        <span
-          className={cn(
-            "rounded-full px-2 py-0.5 text-[10px] font-bold",
-            soldOut ? "bg-destructive/10 text-destructive" : low ? "bg-secondary/15 text-secondary" : "bg-muted text-muted-foreground",
-          )}
-        >
+        <DrinkImage value={drink.emoji} size="lg" />
+        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", soldOut ? "bg-destructive/10 text-destructive" : low ? "bg-secondary/15 text-secondary" : "bg-muted text-muted-foreground")}>
           {soldOut ? "Rupture" : `Stock ${drink.stock}`}
         </span>
       </div>
       <p className="mt-2 text-sm font-bold leading-tight text-foreground">{drink.name}</p>
       <p className="text-xs text-muted-foreground">{drink.size}</p>
       <p className="mt-1 font-display text-base font-extrabold tabular-nums text-primary">{fcfa(drink.price)}</p>
-
       <div className="mt-3">
         {qty === 0 ? (
           <button
@@ -207,33 +225,31 @@ function ProductCard({
   );
 }
 
-const methods = ["Espèces", "Mobile Money", "Crédit"] as const;
-
 function CheckoutSheet({
-  lines,
-  total,
-  tables,
-  servers,
-  onClose,
-  onAdd,
-  onRemove,
-  onConfirm,
+  lines, total, tables, servers, onClose, onAdd, onRemove, onConfirm,
 }: {
   lines: { drink: Drink; qty: number }[];
   total: number;
-  tables: string[];
+  tables: TableItem[];
   servers: string[];
   onClose: () => void;
   onAdd: (id: string) => void;
   onRemove: (id: string) => void;
-  onConfirm: (table: string, server: string, method: (typeof methods)[number]) => void;
+  onConfirm: (table: string, server: string, method: (typeof methods)[number]) => Promise<void>;
 }) {
   const [method, setMethod] = useState<(typeof methods)[number]>("Espèces");
-  const [table, setTable] = useState(tables[0] ?? "Comptoir");
+  const [table, setTable] = useState(tables[0]?.name ?? "Comptoir");
   const [server, setServer] = useState(servers[0] ?? "—");
   const [given, setGiven] = useState("");
+  const [loading, setLoading] = useState(false);
   const givenNum = parseInt(given || "0", 10);
   const change = givenNum - total;
+
+  const submit = async () => {
+    setLoading(true);
+    await onConfirm(table, server, method);
+    setLoading(false);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
@@ -251,7 +267,7 @@ function CheckoutSheet({
           {lines.map(({ drink, qty }) => (
             <div key={drink.id} className="flex items-center justify-between rounded-xl bg-muted px-3 py-2">
               <div className="flex items-center gap-2">
-                <span className="text-xl">{drink.emoji}</span>
+                <DrinkImage value={drink.emoji} size="sm" />
                 <div>
                   <p className="text-sm font-semibold text-foreground">{drink.name}</p>
                   <p className="text-[11px] text-muted-foreground">{fcfa(drink.price)} × {qty}</p>
@@ -273,47 +289,27 @@ function CheckoutSheet({
         <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-muted-foreground">Table</span>
-            <select
-              value={table}
-              onChange={(e) => setTable(e.target.value)}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-            >
+            <select value={table} onChange={(e) => setTable(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary">
               <option value="Comptoir">Comptoir</option>
-              {tables.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
+              {tables.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
             </select>
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-semibold text-muted-foreground">Serveur</span>
-            <select
-              value={server}
-              onChange={(e) => setServer(e.target.value)}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary"
-            >
-              {servers.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
+            <select value={server} onChange={(e) => setServer(e.target.value)} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none focus:border-primary">
+              {servers.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </label>
         </div>
 
         <div className="mt-4">
-
           <p className="mb-2 text-xs font-semibold text-muted-foreground">Moyen de paiement</p>
           <div className="grid grid-cols-3 gap-2">
             {methods.map((m) => (
               <button
                 key={m}
                 onClick={() => setMethod(m)}
-                className={cn(
-                  "rounded-xl border px-2 py-2.5 text-xs font-bold transition-colors",
-                  method === m ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground",
-                )}
+                className={cn("rounded-xl border px-2 py-2.5 text-xs font-bold transition-colors", method === m ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-muted-foreground")}
               >
                 {m}
               </button>
@@ -345,10 +341,11 @@ function CheckoutSheet({
         </div>
 
         <button
-          onClick={() => onConfirm(table, server, method)}
-          className="mt-4 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99]"
+          onClick={submit}
+          disabled={loading}
+          className="mt-4 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99] disabled:opacity-60"
         >
-          Encaisser {fcfa(total)}
+          {loading ? "Encaissement…" : `Encaisser ${fcfa(total)}`}
         </button>
       </div>
     </div>

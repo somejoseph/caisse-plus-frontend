@@ -5,18 +5,13 @@ import { AppLayout } from "@/components/AppLayout";
 import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/qr-menu")({
-  head: () => ({
-    meta: [
-      { title: "QR Code menu — Caisse+" },
-      { name: "description", content: "Partagez votre carte digitale : un QR code que vos clients scannent à table." },
-    ],
-  }),
   component: QrMenu,
 });
 
 function QrMenu() {
   const { establishment } = useStore();
-  const menuUrl = `https://caisse.plus/m/${establishment.code}`;
+  const est = establishment ?? { name: "Caisse+", code: "0000" };
+  const menuUrl = `https://caisse.plus/m/${est.code}`;
   const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&color=0F9D6A&data=${encodeURIComponent(menuUrl)}`;
 
   const copy = async () => {
@@ -31,7 +26,7 @@ function QrMenu() {
   const share = async () => {
     if (navigator.share) {
       try {
-        await navigator.share({ title: `Menu ${establishment.name}`, url: menuUrl });
+        await navigator.share({ title: `Menu ${est.name}`, url: menuUrl });
       } catch {
         /* annulé */
       }
@@ -50,10 +45,10 @@ function QrMenu() {
 
         <div className="flex flex-col items-center rounded-3xl border border-border bg-card p-6 shadow-card">
           <div className="rounded-2xl bg-background p-4">
-            <img src={qrSrc} alt={`QR code du menu de ${establishment.name}`} width={240} height={240} className="h-60 w-60" />
+            <img src={qrSrc} alt={`QR code du menu de ${est.name}`} width={240} height={240} className="h-60 w-60" />
           </div>
-          <p className="mt-4 font-display text-lg font-extrabold text-foreground">{establishment.name}</p>
-          <p className="text-xs text-muted-foreground">Carte digitale · Code {establishment.code}</p>
+          <p className="mt-4 font-display text-lg font-extrabold text-foreground">{est.name}</p>
+          <p className="text-xs text-muted-foreground">Carte digitale · Code {est.code}</p>
         </div>
 
         <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
@@ -69,7 +64,7 @@ function QrMenu() {
         <div className="grid grid-cols-2 gap-3">
           <a
             href={qrSrc}
-            download={`qr-menu-${establishment.code}.png`}
+            download={`qr-menu-${est.code}.png`}
             className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3.5 text-sm font-bold text-foreground shadow-card active:scale-[0.99]"
           >
             <Download className="h-5 w-5 text-primary" /> Télécharger

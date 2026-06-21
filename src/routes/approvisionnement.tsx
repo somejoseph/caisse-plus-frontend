@@ -1,25 +1,31 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Truck, PackagePlus, AlertTriangle, PackageX, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
+import { DrinkImage } from "@/components/DrinkImage";
 import { BottomSheet, Field, inputClass } from "@/components/BottomSheet";
 import { cn } from "@/lib/utils";
 import { fcfa, type Drink } from "@/lib/mock-data";
-import { useStore } from "@/lib/store";
+import { getDrinksApi, getSuppliersApi, restockDrinkApi } from "@/lib/graphql/operations";
 
 export const Route = createFileRoute("/approvisionnement")({
-  head: () => ({
-    meta: [
-      { title: "Approvisionnement — Caisse+" },
-      { name: "description", content: "Réceptionnez vos livraisons et réapprovisionnez les boissons en rupture ou sous le seuil." },
-    ],
-  }),
   component: Approvisionnement,
 });
 
 function Approvisionnement() {
-  const { drinks, suppliers, restockDrink } = useStore();
+  const qc = useQueryClient();
+  const { data: drinks = [] } = useQuery({ queryKey: ["drinks"], queryFn: () => getDrinksApi() });
+  const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: getSuppliersApi });
+
+  const restockMut = useMutation({
+    mutationFn: restockDrinkApi,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["drinks"] });
+    },
+  });
+
   const [target, setTarget] = useState<Drink | null>(null);
   const [qty, setQty] = useState("");
   const [unitCost, setUnitCost] = useState("");
@@ -41,19 +47,23 @@ function Approvisionnement() {
   const costN = parseInt(unitCost || "0", 10);
   const totalCost = qtyN * costN;
 
-  const submit = () => {
+  const submit = async () => {
     if (!target) return;
-    if (qtyN <= 0) {
-      toast.error("Saisis une quantité valide.");
-      return;
-    }
-    const supplier = suppliers.find((s) => s.id === supplierId)?.name;
-    restockDrink(target.id, qtyN, costN, supplier);
-    toast.success(`${target.name} réceptionnée (+${qtyN})`, {
-      description: `Coût total ${fcfa(totalCost)}${supplier ? ` · ${supplier}` : ""}`,
-    });
-    setTarget(null);
-    setQty("");
+    if (qtyN <= 0) { toast.error("Saisis une quantité valide."); return; }
+    try {
+      await restockMut.mutateAsync({
+        drinkId: target.id,
+        quantity: qtyN,
+        unitCost: costN || undefined,
+        supplierId: supplierId || undefined,
+      });
+      const supplierName = suppliers.find((s) => s.id === supplierId)?.name;
+      toast.success(`${target.name} réceptionnée (+${qtyN})`, {
+        description: `Coût total ${fcfa(totalCost)}${supplierName ? ` · ${supplierName}` : ""}`,
+      });
+      setTarget(null);
+      setQty("");
+    } catch { toast.error("Impossible de réceptionner la livraison."); }
   };
 
   return (
@@ -93,7 +103,7 @@ function Approvisionnement() {
                 className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 text-left shadow-card active:scale-[0.99]"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{d.emoji}</span>
+                  <DrinkImage value={d.emoji} size="md" />
                   <div>
                     <p className="text-sm font-bold text-foreground">{d.name}</p>
                     <p className={cn("flex items-center gap-1 text-xs font-semibold", out ? "text-destructive" : "text-warning")}>
@@ -144,15 +154,10 @@ function Approvisionnement() {
 
           {suppliers.length > 0 && (
             <Field label="Fournisseur">
-              <select
-                value={supplierId}
-                onChange={(e) => setSupplierId(e.target.value)}
-                className={inputClass}
-              >
+              <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className={inputClass}>
+                <option value="">— Sans fournisseur —</option>
                 {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
             </Field>
@@ -174,9 +179,10 @@ function Approvisionnement() {
 
           <button
             onClick={submit}
-            className="mt-1 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99]"
+            disabled={restockMut.isPending}
+            className="mt-1 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99] disabled:opacity-60"
           >
-            Valider la réception
+            {restockMut.isPending ? "Réception…" : "Valider la réception"}
           </button>
         </div>
       </BottomSheet>

@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../caisse-plus/caisse-plus-api"
+		}
+	],
+	"settings": {}
+}
