@@ -1,40 +1,69 @@
-import { GraphQLClient } from 'graphql-request';
-
-// En dev avec proxy Vite : les requêtes /graphql sont renvoyées vers localhost:3000.
-// En prod : VITE_API_URL peut pointer vers l'URL complète du backend.
-const _envUrl = (import.meta as unknown as { env: Record<string, string> }).env.VITE_API_URL;
-const API_URL = _envUrl
-  ? _envUrl.startsWith('/')
-    ? `${window.location.origin}${_envUrl}`
-    : _envUrl
-  : `${window.location.origin}/graphql`;
+// ─── Token helpers (consommés aussi par store.tsx et upload.ts) ───────────────
 
 export const TOKEN_KEY = 'caisse_token';
-
 export const getToken = (): string | null => localStorage.getItem(TOKEN_KEY);
 export const setToken = (t: string): void => localStorage.setItem(TOKEN_KEY, t);
 export const clearToken = (): void => localStorage.removeItem(TOKEN_KEY);
 
-// Callback appelé quand le serveur répond 401 (token expiré/invalide)
 let _onUnauthorized: (() => void) | null = null;
 export const setUnauthorizedHandler = (fn: () => void): void => { _onUnauthorized = fn; };
 
-export const gqlClient = new GraphQLClient(API_URL, {
-  requestMiddleware: (req) => {
-    const token = getToken();
-    return {
-      ...req,
-      headers: {
-        ...req.headers,
-        'Content-Type': 'application/json',
-        'apollo-require-preflight': 'true',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    };
-  },
-  responseMiddleware: (res) => {
-    if (res instanceof Error && (res as { response?: { status?: number } }).response?.status === 401) {
-      _onUnauthorized?.();
+// ─── Base URL ─────────────────────────────────────────────────────────────────
+
+const _env = (import.meta as unknown as { env: Record<string, string> }).env;
+const _envUrl: string | undefined = _env.VITE_API_URL;
+
+export const API_BASE = _envUrl
+  ? _envUrl.replace(/\/+$/, '')
+  : '/api/v1';
+
+// ─── Generic REST fetch ───────────────────────────────────────────────────────
+
+type QueryParams = Record<string, string | number | boolean | undefined | null>;
+
+export async function apiFetch<T>(
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  path: string,
+  options: { body?: unknown; params?: QueryParams } = {},
+): Promise<T> {
+  let url = `${API_BASE}${path}`;
+
+  if (options.params) {
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(options.params)) {
+      if (v !== undefined && v !== null) sp.set(k, String(v));
     }
-  },
-});
+    const q = sp.toString();
+    if (q) url += `?${q}`;
+  }
+
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(url, {
+    method,
+    headers,
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+  });
+
+  if (res.status === 401) {
+    _onUnauthorized?.();
+    throw new Error('Session expirée, veuillez vous reconnecter.');
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}) as Record<string, unknown>);
+    throw new Error(
+      (err as { detail?: string; title?: string; message?: string }).detail ??
+      (err as { title?: string }).title ??
+      (err as { message?: string }).message ??
+      `Erreur ${res.status}`,
+    );
+  }
+
+  if (res.status === 204) return undefined as T;
+
+  return res.json() as Promise<T>;
+}

@@ -1,4 +1,4 @@
-import { gqlClient } from '@/lib/gql-client';
+import { apiFetch } from '@/lib/gql-client';
 import {
   CATEGORY_KEY, CATEGORY_LABEL, METHOD_KEY, METHOD_LABEL, STATUS_LABEL,
   TABLE_STATUS_LABEL, TABLE_STATUS_KEY, SERVER_ROLE_LABEL, SERVER_ROLE_KEY,
@@ -49,7 +49,12 @@ interface ApiSupplier {
 interface ApiDaySession {
   id: string; openedAt: string; closedAt: string | null;
   openedByServerId: string | null; openedByUserId: string | null;
-  openedByName: string | null;
+  openedByServer: { name: string } | null;
+  openedByUser: { name: string } | null;
+  countedAmount?: number | null;
+  theoreticalAmount?: number | null;
+  ecart?: number | null;
+  notes?: string | null;
 }
 
 interface ApiNotification {
@@ -145,102 +150,49 @@ export function adaptNotification(n: ApiNotification): AppNotification {
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
-const LOGIN_MUTATION = `
-  mutation Login($input: LoginInput!) {
-    login(input: $input) {
-      accessToken
-      user { id name role }
-      establishment { id name code type city logoUrl }
-    }
-  }
-`;
-
-const REGISTER_MUTATION = `
-  mutation Register($input: RegisterInput!) {
-    register(input: $input) {
-      accessToken
-      user { id name role }
-      establishment { id name code type city logoUrl }
-    }
-  }
-`;
-
 export async function loginApi(establishmentCode: string, pin: string): Promise<ApiAuthPayload> {
-  const data = await gqlClient.request<{ login: ApiAuthPayload }>(LOGIN_MUTATION, {
-    input: { establishmentCode, pin },
+  return apiFetch<ApiAuthPayload>('POST', '/auth/login', {
+    body: { establishmentCode, pin },
   });
-  return data.login;
 }
 
 export async function registerApi(input: {
   ownerName: string; establishmentName: string;
   phone: string; city?: string; establishmentType?: string; pin: string; logoUrl?: string;
 }): Promise<ApiAuthPayload> {
-  const data = await gqlClient.request<{ register: ApiAuthPayload }>(REGISTER_MUTATION, { input });
-  return data.register;
+  return apiFetch<ApiAuthPayload>('POST', '/auth/register', { body: input });
 }
 
 // ─── Drinks ──────────────────────────────────────────────────────────────────
 
-const DRINKS_QUERY = `
-  query Drinks($category: DrinkCategory) {
-    drinks(category: $category) {
-      id name category size price cost stock threshold imageData active
-    }
-  }
-`;
-
-const CREATE_DRINK_MUTATION = `
-  mutation CreateDrink($input: CreateDrinkInput!) {
-    createDrink(input: $input) { id name category size price cost stock threshold imageData active }
-  }
-`;
-
-const RESTOCK_DRINK_MUTATION = `
-  mutation RestockDrink($input: RestockDrinkInput!) {
-    restockDrink(input: $input) { id stock cost }
-  }
-`;
-
 export async function getDrinksApi(category?: string): Promise<Drink[]> {
-  const vars = category ? { category } : {};
-  const data = await gqlClient.request<{ drinks: ApiDrink[] }>(DRINKS_QUERY, vars);
-  return data.drinks.map(adaptDrink);
+  const drinks = await apiFetch<ApiDrink[]>('GET', '/drinks', {
+    params: category ? { category } : {},
+  });
+  return drinks.map(adaptDrink);
 }
 
 export async function createDrinkApi(input: {
   name: string; category: string; size: string; price: number;
   cost?: number; stock?: number; threshold?: number; imageData?: string;
 }): Promise<Drink> {
-  const data = await gqlClient.request<{ createDrink: ApiDrink }>(CREATE_DRINK_MUTATION, { input });
-  return adaptDrink(data.createDrink);
+  const d = await apiFetch<ApiDrink>('POST', '/drinks', { body: input });
+  return adaptDrink(d);
 }
 
 export async function restockDrinkApi(input: {
   drinkId: string; quantity: number; unitCost?: number; supplierId?: string;
 }): Promise<void> {
-  await gqlClient.request(RESTOCK_DRINK_MUTATION, { input });
+  await apiFetch<unknown>('POST', `/drinks/${input.drinkId}/restock`, { body: input });
 }
 
 // ─── Sales ───────────────────────────────────────────────────────────────────
 
-const SALES_QUERY = `
-  query Sales($limit: Int, $from: String, $to: String) {
-    sales(limit: $limit, from: $from, to: $to) {
-      id ticketNumber tableName serverName total method status saleTime itemsCount daySessionId
-    }
-  }
-`;
-
-const RECORD_SALE_MUTATION = `
-  mutation RecordSale($input: RecordSaleInput!) {
-    recordSale(input: $input) { id ticketNumber total tableName serverName method status saleTime itemsCount daySessionId }
-  }
-`;
-
 export async function getSalesApi(limit?: number, from?: string, to?: string): Promise<SaleEntry[]> {
-  const data = await gqlClient.request<{ sales: ApiSale[] }>(SALES_QUERY, { limit, from, to });
-  return data.sales.map(adaptSale);
+  const sales = await apiFetch<ApiSale[]>('GET', '/sales', {
+    params: { limit, from, to },
+  });
+  return sales.map(adaptSale);
 }
 
 export async function recordSaleApi(input: {
@@ -249,55 +201,27 @@ export async function recordSaleApi(input: {
   serverId?: string; serverName: string;
   method: string; discountPct?: number;
 }): Promise<SaleEntry> {
-  const data = await gqlClient.request<{ recordSale: ApiSale }>(RECORD_SALE_MUTATION, { input });
-  return adaptSale(data.recordSale);
+  const s = await apiFetch<ApiSale>('POST', '/sales', { body: input });
+  return adaptSale(s);
 }
 
 // ─── Expenses ─────────────────────────────────────────────────────────────────
 
-const EXPENSES_QUERY = `
-  query Expenses($limit: Int, $daySessionId: ID) {
-    expenses(limit: $limit, daySessionId: $daySessionId) { id label category amount expenseTime daySessionId createdByName }
-  }
-`;
-
-const ADD_EXPENSE_MUTATION = `
-  mutation AddExpense($input: AddExpenseInput!) {
-    addExpense(input: $input) { id label category amount expenseTime createdByName }
-  }
-`;
-
 export async function getExpensesApi(limit?: number, daySessionId?: string): Promise<Expense[]> {
-  const data = await gqlClient.request<{ expenses: ApiExpense[] }>(EXPENSES_QUERY, { limit, daySessionId });
-  return data.expenses.map(adaptExpense);
+  const expenses = await apiFetch<ApiExpense[]>('GET', '/expenses', {
+    params: { limit, daySessionId },
+  });
+  return expenses.map(adaptExpense);
 }
 
 export async function addExpenseApi(input: {
   label: string; category: string; amount: number;
 }): Promise<Expense> {
-  const data = await gqlClient.request<{ addExpense: ApiExpense }>(ADD_EXPENSE_MUTATION, { input });
-  return adaptExpense(data.addExpense);
+  const e = await apiFetch<ApiExpense>('POST', '/expenses', { body: input });
+  return adaptExpense(e);
 }
 
 // ─── Day Sessions ─────────────────────────────────────────────────────────────
-
-const CURRENT_DAY_SESSION_QUERY = `
-  query CurrentDaySession {
-    currentDaySession { id openedAt closedAt openedByServerId openedByUserId openedByName }
-  }
-`;
-
-const OPEN_DAY_SESSION_MUTATION = `
-  mutation OpenDaySession($input: OpenDaySessionInput!) {
-    openDaySession(input: $input) { id openedAt closedAt openedByServerId openedByUserId openedByName }
-  }
-`;
-
-const CLOSE_DAY_SESSION_MUTATION = `
-  mutation CloseDaySession($input: CloseDaySessionInput!) {
-    closeDaySession(input: $input) { id closedAt countedAmount ecart }
-  }
-`;
 
 export interface DaySessionInfo {
   id: string;
@@ -306,211 +230,108 @@ export interface DaySessionInfo {
   date: string;
 }
 
-export async function getCurrentDaySessionApi(): Promise<DaySessionInfo | null> {
-  const data = await gqlClient.request<{ currentDaySession: ApiDaySession | null }>(CURRENT_DAY_SESSION_QUERY);
-  const s = data.currentDaySession;
-  if (!s) return null;
+function adaptDaySessionInfo(s: ApiDaySession): DaySessionInfo {
+  const openedByName = s.openedByServer?.name ?? s.openedByUser?.name ?? null;
   return {
     id: s.id,
     openedAt: fmtTime(s.openedAt),
-    openedByName: s.openedByName,
+    openedByName,
     date: fmtDate(s.openedAt),
   };
 }
 
+export async function getCurrentDaySessionApi(): Promise<DaySessionInfo | null> {
+  const s = await apiFetch<ApiDaySession | null>('GET', '/day-sessions/current');
+  if (!s) return null;
+  return adaptDaySessionInfo(s);
+}
+
 export async function openDaySessionApi(): Promise<DaySessionInfo> {
-  const data = await gqlClient.request<{ openDaySession: ApiDaySession }>(OPEN_DAY_SESSION_MUTATION, { input: {} });
-  const s = data.openDaySession;
-  return {
-    id: s.id,
-    openedAt: fmtTime(s.openedAt),
-    openedByName: s.openedByName,
-    date: fmtDate(s.openedAt),
-  };
+  const s = await apiFetch<ApiDaySession>('POST', '/day-sessions/open', { body: {} });
+  return adaptDaySessionInfo(s);
 }
 
 export async function closeDaySessionApi(input: {
   countedAmount?: number; notes?: string;
 }): Promise<void> {
-  await gqlClient.request(CLOSE_DAY_SESSION_MUTATION, { input });
+  await apiFetch<unknown>('POST', '/day-sessions/close', { body: input });
 }
 
 // ─── Servers ─────────────────────────────────────────────────────────────────
 
-const SERVERS_QUERY = `
-  query Servers {
-    servers { id name phone role startDate active createdAt }
-  }
-`;
-
-const CREATE_SERVER_MUTATION = `
-  mutation CreateServer($input: CreateServerInput!) {
-    createServer(input: $input) { id name phone role startDate active }
-  }
-`;
-
-const UPDATE_SERVER_MUTATION = `
-  mutation UpdateServer($id: ID!, $input: UpdateServerInput!) {
-    updateServer(id: $id, input: $input) { id name phone role startDate active }
-  }
-`;
-
 export async function getServersApi(): Promise<ServerItem[]> {
-  const data = await gqlClient.request<{ servers: ApiServer[] }>(SERVERS_QUERY);
-  return data.servers.map(adaptServer);
+  const servers = await apiFetch<ApiServer[]>('GET', '/servers');
+  return servers.map(adaptServer);
 }
 
 export async function createServerApi(input: {
   name: string; phone?: string; role?: string; startDate?: string;
 }): Promise<ServerItem> {
-  const data = await gqlClient.request<{ createServer: ApiServer }>(CREATE_SERVER_MUTATION, { input });
-  return adaptServer(data.createServer);
+  const s = await apiFetch<ApiServer>('POST', '/servers', { body: input });
+  return adaptServer(s);
 }
 
 export async function updateServerApi(id: string, input: {
   name?: string; phone?: string; role?: string; startDate?: string; active?: boolean;
 }): Promise<ServerItem> {
-  const data = await gqlClient.request<{ updateServer: ApiServer }>(UPDATE_SERVER_MUTATION, { id, input });
-  return adaptServer(data.updateServer);
+  const s = await apiFetch<ApiServer>('PATCH', `/servers/${id}`, { body: input });
+  return adaptServer(s);
 }
 
 // ─── Tables ──────────────────────────────────────────────────────────────────
 
-const TABLES_QUERY = `
-  query Tables {
-    tables { id name seats status active }
-  }
-`;
-
-const CREATE_TABLE_MUTATION = `
-  mutation CreateTable($input: CreateTableInput!) {
-    createTable(input: $input) { id name seats status active }
-  }
-`;
-
-const UPDATE_TABLE_STATUS_MUTATION = `
-  mutation UpdateTableStatus($id: ID!, $status: TableStatus!) {
-    updateTableStatus(id: $id, status: $status) { id name seats status active }
-  }
-`;
-
 export async function getTablesApi(): Promise<TableItem[]> {
-  const data = await gqlClient.request<{ tables: ApiTable[] }>(TABLES_QUERY);
-  return data.tables.filter((t) => t.active).map(adaptTable);
+  const tables = await apiFetch<ApiTable[]>('GET', '/tables');
+  return tables.filter((t) => t.active).map(adaptTable);
 }
 
 export async function createTableApi(input: { name: string; seats: number }): Promise<TableItem> {
-  const data = await gqlClient.request<{ createTable: ApiTable }>(CREATE_TABLE_MUTATION, { input });
-  return adaptTable(data.createTable);
+  const t = await apiFetch<ApiTable>('POST', '/tables', { body: input });
+  return adaptTable(t);
 }
 
 export async function updateTableStatusApi(id: string, status: TableStatus): Promise<TableItem> {
   const apiStatus = TABLE_STATUS_KEY[status] ?? status;
-  const data = await gqlClient.request<{ updateTableStatus: ApiTable }>(UPDATE_TABLE_STATUS_MUTATION, { id, status: apiStatus });
-  return adaptTable(data.updateTableStatus);
+  const t = await apiFetch<ApiTable>('PATCH', `/tables/${id}/status`, { body: { status: apiStatus } });
+  return adaptTable(t);
 }
 
 // ─── Suppliers ───────────────────────────────────────────────────────────────
 
-const SUPPLIERS_QUERY = `
-  query Suppliers {
-    suppliers { id name contact phone category note active }
-  }
-`;
-
-const CREATE_SUPPLIER_MUTATION = `
-  mutation CreateSupplier($input: CreateSupplierInput!) {
-    createSupplier(input: $input) { id name contact phone category note active }
-  }
-`;
-
 export async function getSuppliersApi(): Promise<Supplier[]> {
-  const data = await gqlClient.request<{ suppliers: ApiSupplier[] }>(SUPPLIERS_QUERY);
-  return data.suppliers.filter((s) => s.active).map(adaptSupplier);
+  const suppliers = await apiFetch<ApiSupplier[]>('GET', '/suppliers');
+  return suppliers.filter((s) => s.active).map(adaptSupplier);
 }
 
 export async function createSupplierApi(input: {
   name: string; contact?: string; phone?: string; category?: string; note?: string;
 }): Promise<Supplier> {
-  const data = await gqlClient.request<{ createSupplier: ApiSupplier }>(CREATE_SUPPLIER_MUTATION, { input });
-  return adaptSupplier(data.createSupplier);
+  const s = await apiFetch<ApiSupplier>('POST', '/suppliers', { body: input });
+  return adaptSupplier(s);
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
-const NOTIFICATIONS_QUERY = `
-  query Notifications($limit: Int) {
-    notifications(limit: $limit) { id title body tone read createdAt }
-  }
-`;
-
-const UNREAD_COUNT_QUERY = `
-  query UnreadCount {
-    unreadNotificationsCount
-  }
-`;
-
-const MARK_READ_MUTATION = `
-  mutation MarkRead($id: ID!) {
-    markNotificationRead(id: $id) { id read }
-  }
-`;
-
-const MARK_ALL_READ_MUTATION = `
-  mutation MarkAllRead {
-    markAllNotificationsRead
-  }
-`;
-
 export async function getNotificationsApi(limit?: number): Promise<AppNotification[]> {
-  const data = await gqlClient.request<{ notifications: ApiNotification[] }>(NOTIFICATIONS_QUERY, { limit });
-  return data.notifications.map(adaptNotification);
+  const notifs = await apiFetch<ApiNotification[]>('GET', '/notifications', {
+    params: { limit },
+  });
+  return notifs.map(adaptNotification);
 }
 
 export async function getUnreadCountApi(): Promise<number> {
-  const data = await gqlClient.request<{ unreadNotificationsCount: number }>(UNREAD_COUNT_QUERY);
-  return data.unreadNotificationsCount;
+  return apiFetch<number>('GET', '/notifications/unread-count');
 }
 
 export async function markNotificationReadApi(id: string): Promise<void> {
-  await gqlClient.request(MARK_READ_MUTATION, { id });
+  await apiFetch<unknown>('POST', `/notifications/${id}/read`);
 }
 
 export async function markAllNotificationsReadApi(): Promise<void> {
-  await gqlClient.request(MARK_ALL_READ_MUTATION);
+  await apiFetch<unknown>('POST', '/notifications/mark-all-read');
 }
 
 // ─── Users (Gérants) ─────────────────────────────────────────────────────────
-
-const USERS_QUERY = `
-  query Users {
-    users { id name phone role active createdAt }
-  }
-`;
-
-const CREATE_GERANT_MUTATION = `
-  mutation CreateGerant($input: CreateUserInput!) {
-    createGerant(input: $input) { id name phone role active }
-  }
-`;
-
-const DEACTIVATE_USER_MUTATION = `
-  mutation DeactivateUser($id: ID!) {
-    deactivateUser(id: $id) { id active }
-  }
-`;
-
-const REACTIVATE_USER_MUTATION = `
-  mutation ReactivateUser($id: ID!) {
-    reactivateUser(id: $id) { id active }
-  }
-`;
-
-const UPDATE_USER_MUTATION = `
-  mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
-    updateUser(id: $id, input: $input) { id name phone role active }
-  }
-`;
 
 export interface GerantUser {
   id: string;
@@ -521,8 +342,8 @@ export interface GerantUser {
 }
 
 export async function getUsersApi(): Promise<GerantUser[]> {
-  const data = await gqlClient.request<{ users: ApiUser[] }>(USERS_QUERY);
-  return data.users.map((u) => ({
+  const users = await apiFetch<ApiUser[]>('GET', '/users');
+  return users.map((u) => ({
     id: u.id,
     name: u.name,
     phone: u.phone,
@@ -532,35 +353,29 @@ export async function getUsersApi(): Promise<GerantUser[]> {
 }
 
 export async function createGerantApi(input: { name: string; phone: string; pin: string }): Promise<GerantUser> {
-  const data = await gqlClient.request<{ createGerant: ApiUser }>(CREATE_GERANT_MUTATION, { input });
+  const u = await apiFetch<ApiUser>('POST', '/users', { body: input });
   return {
-    id: data.createGerant.id,
-    name: data.createGerant.name,
-    phone: data.createGerant.phone,
-    role: (USER_ROLE_LABEL[data.createGerant.role] ?? 'Gérant') as UserRole,
-    active: data.createGerant.active,
+    id: u.id,
+    name: u.name,
+    phone: u.phone,
+    role: (USER_ROLE_LABEL[u.role] ?? 'Gérant') as UserRole,
+    active: u.active,
   };
 }
 
 export async function deactivateUserApi(userId: string): Promise<void> {
-  await gqlClient.request(DEACTIVATE_USER_MUTATION, { id: userId });
+  await apiFetch<unknown>('POST', `/users/${userId}/deactivate`);
 }
 
 export async function reactivateUserApi(userId: string): Promise<void> {
-  await gqlClient.request(REACTIVATE_USER_MUTATION, { id: userId });
+  await apiFetch<unknown>('POST', `/users/${userId}/reactivate`);
 }
 
 export async function updateUserApi(id: string, input: { active?: boolean; name?: string; phone?: string; pin?: string }): Promise<void> {
-  await gqlClient.request(UPDATE_USER_MUTATION, { id, input });
+  await apiFetch<unknown>('POST', `/users/${id}/update`, { body: input });
 }
 
 // ─── Audit ────────────────────────────────────────────────────────────────────
-
-const AUDIT_QUERY = `
-  query AuditLog($limit: Int) {
-    auditLog(limit: $limit) { id eventType level label detail userName eventTime createdAt }
-  }
-`;
 
 export interface AuditEntry {
   id: string; eventType: string; level: string; label: string;
@@ -568,46 +383,30 @@ export interface AuditEntry {
 }
 
 export async function getAuditLogApi(limit?: number): Promise<AuditEntry[]> {
-  const data = await gqlClient.request<{ auditLog: ApiAuditEntry[] }>(AUDIT_QUERY, { limit });
-  return data.auditLog;
+  return apiFetch<AuditEntry[]>('GET', '/audit', { params: { limit } });
 }
 
 // ─── Inventory ────────────────────────────────────────────────────────────────
-
-const SAVE_INVENTORY_MUTATION = `
-  mutation SaveInventory($input: SaveInventoryInput!) {
-    saveInventory(input: $input) { id totalEcartValue itemsCounted createdAt }
-  }
-`;
 
 export async function saveInventoryApi(input: {
   items: { drinkId: string; countedStock: number }[];
   applyAdjustment?: boolean;
   notes?: string;
 }): Promise<{ id: string; totalEcartValue: number; itemsCounted: number }> {
-  const data = await gqlClient.request<{ saveInventory: { id: string; totalEcartValue: number; itemsCounted: number } }>(
-    SAVE_INVENTORY_MUTATION, { input }
+  return apiFetch<{ id: string; totalEcartValue: number; itemsCounted: number }>(
+    'POST', '/inventory', { body: input }
   );
-  return data.saveInventory;
 }
 
 // ─── Stock status ─────────────────────────────────────────────────────────────
 
-const STOCK_STATUS_QUERY = `
-  query StockStatus {
-    stockStatus {
-      id name category size price cost margin marginPct stock threshold stockValue stockAlert imageData active
-    }
-  }
-`;
-
 export async function getStockStatusApi(): Promise<Drink[]> {
   interface ApiStockItem {
     id: string; name: string; category: string; size: string; price: number;
-    cost: number; margin: number; stock: number; threshold: number; imageData: string | null; active: boolean;
+    cost: number; stock: number; threshold: number; imageData: string | null; active: boolean;
   }
-  const data = await gqlClient.request<{ stockStatus: ApiStockItem[] }>(STOCK_STATUS_QUERY);
-  return data.stockStatus.map((s) => ({
+  const items = await apiFetch<ApiStockItem[]>('GET', '/stock/status');
+  return items.map((s) => ({
     id: s.id, name: s.name,
     category: (CATEGORY_LABEL[s.category] ?? s.category) as Category,
     size: s.size, price: s.price, cost: s.cost,
@@ -617,18 +416,6 @@ export async function getStockStatusApi(): Promise<Drink[]> {
 }
 
 // ─── Sale detail ─────────────────────────────────────────────────────────────
-
-interface ApiSaleItem {
-  id: string; drinkName: string; drinkSize: string;
-  unitPrice: number; quantity: number; subtotal: number | null;
-}
-
-interface ApiSaleDetail {
-  id: string; ticketNumber: string; tableName: string; serverName: string;
-  total: number; method: string; status: string; saleTime: string;
-  itemsCount: number; daySessionId: string | null;
-  items: ApiSaleItem[];
-}
 
 export interface SaleItemDetail {
   id: string; drinkName: string; drinkSize: string;
@@ -641,18 +428,17 @@ export interface SaleDetail {
   itemsCount: number; items: SaleItemDetail[];
 }
 
-const SALE_DETAIL_QUERY = `
-  query SaleDetail($id: ID!) {
-    sale(id: $id) {
-      id ticketNumber tableName serverName total method status saleTime itemsCount daySessionId
-      items { id drinkName drinkSize unitPrice quantity subtotal }
-    }
-  }
-`;
+interface ApiSaleItem {
+  id: string; drinkName: string; drinkSize: string;
+  unitPrice: number; quantity: number; subtotal: number | null;
+}
+
+interface ApiSaleDetail extends ApiSale {
+  items: ApiSaleItem[];
+}
 
 export async function getSaleDetailApi(id: string): Promise<SaleDetail> {
-  const data = await gqlClient.request<{ sale: ApiSaleDetail }>(SALE_DETAIL_QUERY, { id });
-  const s = data.sale;
+  const s = await apiFetch<ApiSaleDetail>('GET', `/sales/${id}`);
   return {
     id: s.id,
     ticketNumber: s.ticketNumber,
@@ -676,23 +462,6 @@ export async function getSaleDetailApi(id: string): Promise<SaleDetail> {
 
 // ─── Reports ─────────────────────────────────────────────────────────────────
 
-interface ApiReportSale {
-  id: string; ticketNumber: string; tableName: string; serverName: string;
-  serverId: string | null; total: number; method: string; status: string;
-  saleTime: string; createdAt: string; itemsCount: number;
-}
-
-interface ApiReportExpense {
-  id: string; label: string; category: string; amount: number;
-  expenseTime: string; createdAt: string; createdByName: string | null;
-}
-
-interface ApiReportSession {
-  id: string; openedAt: string; closedAt: string | null;
-  openedByName: string | null; countedAmount: number | null;
-  theoreticalAmount: number | null; ecart: number | null; notes: string | null;
-}
-
 export interface ReportSale {
   id: string; ticketNumber: string; table: string; server: string;
   serverId: string | null; total: number; method: string;
@@ -709,33 +478,20 @@ export interface ReportSession {
   openedByName: string | null; countedAmount: number | null; ecart: number | null;
 }
 
-const REPORT_SALES_QUERY = `
-  query ReportSales($from: String, $to: String, $serverId: ID, $limit: Int) {
-    sales(from: $from, to: $to, serverId: $serverId, limit: $limit) {
-      id ticketNumber tableName serverName serverId total method status saleTime createdAt itemsCount
-    }
-  }
-`;
+interface ApiReportSale {
+  id: string; ticketNumber: string; tableName: string; serverName: string;
+  serverId: string | null; total: number; method: string; status: string;
+  saleTime: string; createdAt: string; itemsCount: number;
+}
 
-const REPORT_EXPENSES_QUERY = `
-  query ReportExpenses($from: String, $to: String, $limit: Int) {
-    expenses(from: $from, to: $to, limit: $limit) {
-      id label category amount expenseTime createdAt createdByName
-    }
-  }
-`;
-
-const REPORT_SESSIONS_QUERY = `
-  query ReportDaySessions($from: String, $to: String, $limit: Int) {
-    daySessions(from: $from, to: $to, limit: $limit) {
-      id openedAt closedAt openedByName countedAmount theoreticalAmount ecart notes
-    }
-  }
-`;
+interface ApiReportExpense {
+  id: string; label: string; category: string; amount: number;
+  expenseTime: string; createdAt: string; createdByName: string | null;
+}
 
 export async function getReportSalesApi(params: { from?: string; to?: string; serverId?: string; limit?: number } = {}): Promise<ReportSale[]> {
-  const data = await gqlClient.request<{ sales: ApiReportSale[] }>(REPORT_SALES_QUERY, params);
-  return data.sales.map((s) => ({
+  const sales = await apiFetch<ApiReportSale[]>('GET', '/sales', { params });
+  return sales.map((s) => ({
     id: s.id,
     ticketNumber: s.ticketNumber,
     table: s.tableName,
@@ -749,8 +505,8 @@ export async function getReportSalesApi(params: { from?: string; to?: string; se
 }
 
 export async function getReportExpensesApi(params: { from?: string; to?: string; limit?: number } = {}): Promise<ReportExpense[]> {
-  const data = await gqlClient.request<{ expenses: ApiReportExpense[] }>(REPORT_EXPENSES_QUERY, params);
-  return data.expenses.map((e) => ({
+  const expenses = await apiFetch<ApiReportExpense[]>('GET', '/expenses', { params });
+  return expenses.map((e) => ({
     id: e.id,
     label: e.label,
     category: e.category,
@@ -762,15 +518,15 @@ export async function getReportExpensesApi(params: { from?: string; to?: string;
 }
 
 export async function getReportDaySessionsApi(params: { from?: string; to?: string; limit?: number } = {}): Promise<ReportSession[]> {
-  const data = await gqlClient.request<{ daySessions: ApiReportSession[] }>(REPORT_SESSIONS_QUERY, params);
-  return data.daySessions.map((s) => ({
+  const sessions = await apiFetch<ApiDaySession[]>('GET', '/day-sessions', { params });
+  return sessions.map((s) => ({
     id: s.id,
     date: s.openedAt.slice(0, 10),
     openedAt: s.openedAt,
     closedAt: s.closedAt,
-    openedByName: s.openedByName,
-    countedAmount: s.countedAmount,
-    ecart: s.ecart,
+    openedByName: s.openedByServer?.name ?? s.openedByUser?.name ?? null,
+    countedAmount: s.countedAmount ?? null,
+    ecart: s.ecart ?? null,
   }));
 }
 
