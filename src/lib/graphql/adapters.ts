@@ -76,8 +76,13 @@ export function toNotifTone(v: string): NotifTone {
 
 // ─── Time helper ─────────────────────────────────────────────────────────────
 export function fmtTime(iso: string): string {
+  if (!iso) return '—';
+  // PostgreSQL @db.Time(6) retourne "HH:MM:SS.ffffff" sans date
+  if (/^\d{2}:\d{2}/.test(iso)) return iso.slice(0, 5);
   try {
-    return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso.slice(11, 16) || iso;
+    return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   } catch {
     return iso.slice(11, 16);
   }

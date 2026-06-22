@@ -1,16 +1,16 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, Trophy, Clock, FileDown, Share2, FileText } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { TrendingUp, Trophy, Clock, FileDown, Share2, FileText, Ban, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { DrinkImage } from "@/components/DrinkImage";
 import { BottomSheet, Field } from "@/components/BottomSheet";
 import { SaleDetailSheet } from "@/components/SaleDetailSheet";
 import { cn } from "@/lib/utils";
-import { fcfa, WEEK_SALES } from "@/lib/mock-data";
+import { fcfa, type SaleEntry } from "@/lib/mock-data";
 import { useStore } from "@/lib/store";
-import { getSalesApi, getDrinksApi } from "@/lib/graphql/operations";
+import { getSalesApi, getDrinksApi, cancelSaleApi } from "@/lib/graphql/operations";
 import { SectionTitle, MethodBadge } from "./index";
 import { downloadReportPDF, shareReportPDF, type ReportSection } from "@/lib/export-pdf";
 
@@ -21,27 +21,83 @@ export const Route = createFileRoute("/journal")({
 const periods = ["Jour", "Semaine", "Mois"] as const;
 const dataTypes = ["Synthèse", "Ventes détaillées", "Boissons rentables", "Tout"] as const;
 
+function dateHeader(dateStr: string): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  if (dateStr === today) return "Aujourd'hui";
+  if (dateStr === yesterday) return "Hier";
+  return new Date(dateStr + "T12:00:00").toLocaleDateString("fr-FR", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+}
+
 function Journal() {
+  const qc = useQueryClient();
   const [period, setPeriod] = useState<(typeof periods)[number]>("Jour");
-  const { establishment, currentRole } = useStore();
+  const { establishment, currentRole, currentUserName } = useStore();
   const isOwner = currentRole === "Propriétaire";
 
-  const { data: sales = [] } = useQuery({ queryKey: ["sales"], queryFn: () => getSalesApi(200) });
+  const today = new Date().toISOString().slice(0, 10);
+
+  const fromDate = useMemo(() => {
+    if (period === "Jour") return today;
+    const d = new Date();
+    d.setDate(d.getDate() - (period === "Semaine" ? 6 : 29));
+    return d.toISOString().slice(0, 10);
+  }, [period, today]);
+
+  const { data: sales = [] } = useQuery({
+    queryKey: ["sales", isOwner ? null : currentUserName, period],
+    queryFn: () => getSalesApi(500, fromDate, today, isOwner ? undefined : currentUserName),
+    enabled: isOwner || !!currentUserName,
+  });
   const { data: drinks = [] } = useQuery({ queryKey: ["drinks"], queryFn: () => getDrinksApi() });
+
+  const cancelMut = useMutation({
+    mutationFn: cancelSaleApi,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["sales"] }),
+  });
 
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [expPeriod, setExpPeriod] = useState<(typeof periods)[number]>("Jour");
   const [expType, setExpType] = useState<(typeof dataTypes)[number]>("Synthèse");
 
-  const ca = sales.reduce((s, v) => s + v.total, 0);
+  const activeSales = sales.filter((s) => s.status !== "Annulée");
+  const ca = activeSales.reduce((s, v) => s + v.total, 0);
   const benefice = Math.round(ca * 0.367);
+
+  // Groupement de l'historique par date (décroissant)
+  const salesByDate = useMemo(() => {
+    const map = new Map<string, SaleEntry[]>();
+    for (const s of sales) {
+      const key = s.date ?? today;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(s);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a));
+  }, [sales, today]);
 
   const topDrinks = [...drinks]
     .map((d) => ({ ...d, margin: d.price - d.cost }))
     .sort((a, b) => b.margin - a.margin)
     .slice(0, 5);
-  const maxBar = Math.max(...WEEK_SALES.map((w) => w.value), 1);
+
+  const DAY_SHORT = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+  const weekChartDays = useMemo(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(Date.now() - (6 - i) * 86400000);
+      const date = d.toISOString().slice(0, 10);
+      return {
+        date,
+        label: DAY_SHORT[d.getDay()],
+        total: sales
+          .filter((s) => s.date === date && s.status !== "Annulée")
+          .reduce((a, s) => a + s.total, 0),
+      };
+    });
+  }, [sales]);
+  const weekChartMax = Math.max(...weekChartDays.map((d) => d.total), 1);
 
   const buildSections = (type: (typeof dataTypes)[number]): ReportSection[] => {
     const sections: ReportSection[] = [];
@@ -79,7 +135,10 @@ function Journal() {
           { header: "Jour", key: "day", width: 2 },
           { header: "Ventes (k F)", key: "value", align: "right", width: 1 },
         ],
-        rows: WEEK_SALES.map((w) => ({ day: w.day, value: String(w.value) })),
+        rows: salesByDate.map(([date, ds]) => ({
+          day: new Date(date + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" }),
+          value: fcfa(ds.filter((s) => s.status !== "Annulée").reduce((a, s) => a + s.total, 0)),
+        })),
       });
     }
     return sections;
@@ -100,7 +159,7 @@ function Journal() {
         ]
       : [
           { label: "Chiffre d'affaires", value: fcfa(ca) },
-          { label: "Nombre de ventes", value: String(sales.length) },
+          { label: "Nombre de ventes", value: String(activeSales.length) },
         ],
   });
 
@@ -138,6 +197,7 @@ function Journal() {
           </button>
         </div>
 
+        {/* Sélecteur de période */}
         <div className="flex rounded-2xl bg-muted p-1">
           {periods.map((p) => (
             <button
@@ -150,12 +210,13 @@ function Journal() {
           ))}
         </div>
 
+        {/* Stats de la période */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
             <p className="text-xs text-muted-foreground">Chiffre d'affaires</p>
             <p className="mt-0.5 font-display text-xl font-extrabold tabular-nums text-foreground">{fcfa(ca)}</p>
             <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-success">
-              <TrendingUp className="h-3 w-3" /> {sales.length} ventes
+              <TrendingUp className="h-3 w-3" /> {activeSales.length} vente{activeSales.length > 1 ? "s" : ""}
             </span>
           </div>
           {isOwner ? (
@@ -166,29 +227,37 @@ function Journal() {
             </div>
           ) : (
             <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
-              <p className="text-xs text-muted-foreground">Nombre de ventes</p>
-              <p className="mt-0.5 font-display text-xl font-extrabold tabular-nums text-foreground">{sales.length}</p>
-              <span className="mt-1 inline-block text-[11px] text-muted-foreground">Transactions du jour</span>
+              <p className="text-xs text-muted-foreground">Mes ventes</p>
+              <p className="mt-0.5 font-display text-xl font-extrabold tabular-nums text-foreground">{activeSales.length}</p>
+              <span className="mt-1 inline-block text-[11px] text-muted-foreground capitalize">{period === "Jour" ? "Aujourd'hui" : `Cette ${period.toLowerCase()}`}</span>
             </div>
           )}
         </div>
 
-        <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
-          <SectionTitle title="Ventes par jour" />
-          <div className="flex h-32 items-end justify-between gap-2">
-            {WEEK_SALES.map((w, i) => (
-              <div key={w.day} className="flex flex-1 flex-col items-center gap-1.5">
-                <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">{w.value}</span>
-                <div
-                  className={`w-full rounded-t-lg ${i === 5 ? "bg-secondary" : "bg-primary/80"}`}
-                  style={{ height: `${(w.value / maxBar) * 100}%` }}
-                />
-                <span className="text-[10px] text-muted-foreground">{w.day}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+        {/* Graphique (uniquement si période = Semaine) */}
+        {period === "Semaine" && (
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
+            <SectionTitle title="Ventes 7 derniers jours" />
+            <div className="flex h-32 items-end justify-between gap-2">
+              {weekChartDays.map((d, i) => (
+                <div key={d.date} className="flex flex-1 flex-col items-center gap-1.5">
+                  {d.total > 0 && (
+                    <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">
+                      {Math.round(d.total / 1000)}k
+                    </span>
+                  )}
+                  <div
+                    className={`w-full rounded-t-lg ${i === weekChartDays.length - 1 ? "bg-secondary" : "bg-primary/80"}`}
+                    style={{ height: `${(d.total / weekChartMax) * 100}%`, minHeight: d.total > 0 ? "3px" : "1px" }}
+                  />
+                  <span className="text-[10px] text-muted-foreground">{d.label}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
+        {/* Top boissons — propriétaire uniquement */}
         {isOwner && (
           <section>
             <div className="mb-3 flex items-center gap-2">
@@ -216,32 +285,75 @@ function Journal() {
           </section>
         )}
 
+        {/* Historique groupé par date */}
         <section>
           <div className="mb-3 flex items-center gap-2">
             <Clock className="h-5 w-5 text-primary" />
             <SectionTitle title="Historique des ventes" noMargin />
           </div>
-          <div className="space-y-2">
-            {sales.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSelectedSaleId(s.id)}
-                className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card active:scale-[0.99] text-left"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{s.ticketNumber ?? s.id} · {s.table}</p>
-                  <p className="text-xs text-muted-foreground">{s.time} · {s.server} · {s.items} articles</p>
+
+          {salesByDate.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Aucune vente sur cette période.</p>
+          ) : (
+            <div className="space-y-4">
+              {salesByDate.map(([date, dateSales]) => (
+                <div key={date}>
+                  {/* Séparateur de date */}
+                  <div className="mb-2 flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs font-bold capitalize text-muted-foreground">{dateHeader(date)}</span>
+                    <div className="ml-1 flex-1 border-t border-border" />
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      {fcfa(dateSales.filter(s => s.status !== "Annulée").reduce((a, s) => a + s.total, 0))}
+                    </span>
+                  </div>
+
+                  {/* Ventes du jour */}
+                  <div className="space-y-2">
+                    {dateSales.map((s) => (
+                      <div
+                        key={s.id}
+                        className={cn(
+                          "rounded-2xl border bg-card px-4 py-3 shadow-card",
+                          s.status === "Annulée" ? "border-destructive/20 opacity-60" : "border-border",
+                        )}
+                      >
+                        <button
+                          onClick={() => setSelectedSaleId(s.id)}
+                          className="flex w-full items-center justify-between text-left active:scale-[0.99]"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">{s.ticketNumber ?? s.id} · {s.table}</p>
+                            <p className="text-xs text-muted-foreground">{s.time} · {s.server} · {s.items} art.</p>
+                          </div>
+                          <div className="text-right">
+                            <p className={cn("text-sm font-bold tabular-nums", s.status === "Annulée" ? "text-destructive line-through" : "text-foreground")}>{fcfa(s.total)}</p>
+                            <MethodBadge method={s.method} />
+                          </div>
+                        </button>
+                        {s.status !== "Annulée" && (
+                          <div className="mt-2 border-t border-border pt-2">
+                            <button
+                              onClick={() => {
+                                if (!confirm(`Annuler la vente ${s.ticketNumber ?? s.id} ?`)) return;
+                                void cancelMut.mutateAsync(s.id)
+                                  .then(() => toast.success(`Vente ${s.ticketNumber ?? s.id} annulée`))
+                                  .catch(() => toast.error("Impossible d'annuler cette vente."));
+                              }}
+                              disabled={cancelMut.isPending}
+                              className="flex items-center gap-1.5 rounded-xl bg-destructive/10 px-3 py-1.5 text-xs font-bold text-destructive active:scale-[0.98] disabled:opacity-50"
+                            >
+                              <Ban className="h-3.5 w-3.5" /> Annuler la vente
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold tabular-nums text-foreground">{fcfa(s.total)}</p>
-                  <MethodBadge method={s.method} />
-                </div>
-              </button>
-            ))}
-            {sales.length === 0 && (
-              <p className="py-6 text-center text-sm text-muted-foreground">Aucune vente enregistrée.</p>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
 
@@ -303,4 +415,3 @@ function Journal() {
     </AppLayout>
   );
 }
-

@@ -10,16 +10,21 @@ import { fcfa } from "@/lib/mock-data";
 import type { SaleEntry, Expense } from "@/lib/mock-data";
 import { getSalesApi, getExpensesApi, getCurrentDaySessionApi, addExpenseApi } from "@/lib/graphql/operations";
 import { SectionTitle } from "./index";
+import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/caisse")({
   component: Caisse,
 });
 
-const tabs = ["Résumé", "Dépenses", "Moyens"] as const;
+const ALL_TABS = ["Résumé", "Dépenses", "Moyens"] as const;
+type CaisseTab = (typeof ALL_TABS)[number];
 
 function Caisse() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<(typeof tabs)[number]>("Résumé");
+  const { currentRole } = useStore();
+  const isOwner = currentRole === "Propriétaire";
+  const tabs = isOwner ? ALL_TABS : (["Dépenses"] as const);
+  const [tab, setTab] = useState<CaisseTab>(isOwner ? "Résumé" : "Dépenses");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [label, setLabel] = useState("");
@@ -45,8 +50,13 @@ function Caisse() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["expenses"] }),
   });
 
-  const totalCA = sales.reduce((a, s) => a + s.total, 0);
-  const entrees = sales.filter((s: SaleEntry) => s.method !== "Crédit").reduce((a, s) => a + s.total, 0);
+  const activeSales = sales.filter((s: SaleEntry) => s.status !== "Annulée");
+  const cancelledSales = sales.filter((s: SaleEntry) => s.status === "Annulée");
+  const creditSales = activeSales.filter((s: SaleEntry) => s.method === "Crédit");
+  const totalCA = activeSales.reduce((a, s) => a + s.total, 0);
+  const creditTotal = creditSales.reduce((a, s) => a + s.total, 0);
+  const cancelledTotal = cancelledSales.reduce((a: number, s: SaleEntry) => a + s.total, 0);
+  const entrees = totalCA - creditTotal;
   const sorties = expenses.reduce((a: number, e: Expense) => a + e.amount, 0);
   const solde = entrees - sorties;
 
@@ -87,25 +97,29 @@ function Caisse() {
         )}
 
         <div className="rounded-3xl bg-brand-gradient p-5 text-primary-foreground shadow-elevated">
-          <p className="text-sm text-primary-foreground/80">Solde net de la caisse (ventes - dépenses)</p>
+          <p className="text-sm text-primary-foreground/80">Solde net (entrées caisse - dépenses)</p>
           <p className="mt-1 font-display text-4xl font-extrabold tabular-nums">{fcfa(solde)}</p>
           <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/15 pt-4">
             <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15">
                 <ArrowDownLeft className="h-4 w-4" />
               </span>
               <div>
-                <p className="text-[11px] text-primary-foreground/70">solde ventes</p>
+                <p className="text-[11px] text-primary-foreground/70">entrées caisse</p>
                 <p className="font-bold tabular-nums">{fcfa(entrees)}</p>
+                {creditTotal > 0 && (
+                  <p className="text-[10px] text-primary-foreground/50">hors {fcfa(creditTotal)} crédit</p>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15">
                 <ArrowUpRight className="h-4 w-4" />
               </span>
               <div>
-                <p className="text-[11px] text-primary-foreground/70">solde dépenses</p>
+                <p className="text-[11px] text-primary-foreground/70">dépenses du jour</p>
                 <p className="font-bold tabular-nums">{fcfa(sorties)}</p>
+                <p className="text-[10px] text-primary-foreground/50">session en cours</p>
               </div>
             </div>
           </div>
@@ -128,8 +142,8 @@ function Caisse() {
             {/* Stats rapides */}
             <div className="grid grid-cols-3 gap-2">
               <div className="rounded-2xl border border-border bg-card p-3 shadow-card text-center">
-                <p className="font-display text-xl font-extrabold tabular-nums text-foreground">{sales.length}</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">Ventes</p>
+                <p className="font-display text-xl font-extrabold tabular-nums text-foreground">{activeSales.length}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Ventes actives</p>
               </div>
               <div className="rounded-2xl border border-border bg-card p-3 shadow-card text-center">
                 <p className="font-display text-xl font-extrabold tabular-nums text-foreground">{expenses.length}</p>
@@ -137,28 +151,60 @@ function Caisse() {
               </div>
               <div className="rounded-2xl border border-border bg-card p-3 shadow-card text-center">
                 <p className="font-display text-lg font-extrabold tabular-nums text-foreground">
-                  {fcfa(sales.length ? Math.round(totalCA / sales.length) : 0)}
+                  {fcfa(activeSales.length ? Math.round(totalCA / activeSales.length) : 0)}
                 </p>
                 <p className="mt-0.5 text-[11px] text-muted-foreground">Panier moy.</p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-success/30 bg-success/10 p-4">
-              <p className="text-sm font-semibold text-foreground">Réconciliation</p>
-              <div className="mt-2 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Ventes cash</span>
+            <div className="rounded-2xl border border-success/30 bg-success/10 p-4 space-y-2">
+              <p className="text-sm font-semibold text-foreground">Calcul comptable</p>
+
+              {/* CA total */}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">ventes totales ({activeSales.length} ventes)</span>
+                <span className="font-bold tabular-nums text-foreground">{fcfa(totalCA)}</span>
+              </div>
+
+              {/* Crédit exclu — toujours affiché */}
+              <div className="flex items-center justify-between rounded-lg bg-orange-50 px-3 py-1.5 text-xs dark:bg-orange-950/30">
+                <span className="font-medium text-orange-600 dark:text-orange-400">
+                  └ Crédit non encaissé ({creditSales.length} vente{creditSales.length > 1 ? "s" : ""})
+                </span>
+                <span className="font-bold tabular-nums text-orange-600 dark:text-orange-400">− {fcfa(creditTotal)}</span>
+              </div>
+
+              {/* Annulées exclues — toujours affiché */}
+              <div className="flex items-center justify-between rounded-lg bg-destructive/10 px-3 py-1.5 text-xs">
+                <span className="font-medium text-destructive">
+                  └ Annulées ({cancelledSales.length} vente{cancelledSales.length > 1 ? "s" : ""})
+                </span>
+                <span className="font-bold tabular-nums text-destructive">− {fcfa(cancelledTotal)}</span>
+              </div>
+
+              {/* Séparateur */}
+              <div className="border-t border-success/20 pt-1" />
+
+              {/* Entrées caisse */}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Ventes payées</span>
                 <span className="font-bold tabular-nums text-success">+ {fcfa(entrees)}</span>
               </div>
+
+              {/* Dépenses */}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Dépenses</span>
-                <span className="font-bold tabular-nums text-destructive">- {fcfa(sorties)}</span>
+                <span className="text-muted-foreground">Dépenses (du jour)</span>
+                <span className="font-bold tabular-nums text-destructive">− {fcfa(sorties)}</span>
               </div>
-              <div className="mt-2 flex items-center justify-between border-t border-success/20 pt-2 text-sm">
+
+              {/* Total */}
+              <div className="flex items-center justify-between border-t border-success/20 pt-2 text-sm">
                 <span className="font-semibold text-foreground">Solde net</span>
                 <span className={cn("font-bold tabular-nums", solde >= 0 ? "text-success" : "text-destructive")}>{fcfa(solde)}</span>
               </div>
             </div>
-            <PayBreakdown sales={sales} />
+
+            <PayBreakdown sales={activeSales} />
           </section>
         )}
 

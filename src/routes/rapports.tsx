@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDownLeft, ArrowUpRight, Calendar, Receipt } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Calendar, FileDown, Receipt } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fcfa } from "@/lib/mock-data";
+import { fcfa, ESTABLISHMENT } from "@/lib/mock-data";
 import { AppLayout } from "@/components/AppLayout";
 import { inputClass } from "@/components/BottomSheet";
 import { useStore } from "@/lib/store";
@@ -11,6 +11,7 @@ import {
   getReportSalesApi, getReportExpensesApi, getReportDaySessionsApi,
   type ReportSale, type ReportExpense, type ReportSession,
 } from "@/lib/graphql/operations";
+import { shareReportPDF, type ReportMeta, type ReportSection } from "@/lib/export-pdf";
 
 export const Route = createFileRoute("/rapports")({
   component: Rapports,
@@ -54,9 +55,10 @@ function Rapports() {
   }, [currentRole, navigate]);
 
   const today = new Date();
-  const [from, setFrom] = useState(isoDate(new Date(today.getFullYear(), today.getMonth(), 1)));
+  const [from, setFrom] = useState(isoDate(today));
   const [to, setTo] = useState(isoDate(today));
   const [tab, setTab] = useState<Tab>("Synthèse");
+  const [activeShortcut, setActiveShortcut] = useState<string>("today");
 
   const salesQ = useQuery({ queryKey: ["reportSales", from, to], queryFn: () => getReportSalesApi({ from, to, limit: 5000 }) });
   const expensesQ = useQuery({ queryKey: ["reportExpenses", from, to], queryFn: () => getReportExpensesApi({ from, to, limit: 5000 }) });
@@ -114,6 +116,118 @@ function Rapports() {
     };
     setFrom(isoDate(froms[key] ?? t));
     setTo(isoDate(t));
+    setActiveShortcut(key);
+  };
+
+  const handleExportPDF = () => {
+    const fmtShort = (iso: string) =>
+      new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+    const periodLabel = from === to ? fmtShort(from) : `${fmtShort(from)} – ${fmtShort(to)}`;
+
+    const meta: ReportMeta = {
+      title: isOwner ? "Rapport & Bilan" : `Rapport de ${currentUserName}`,
+      establishment: ESTABLISHMENT.name,
+      period: periodLabel,
+      dataType: isOwner ? "Vue propriétaire" : "Vue gérant",
+      summary: [
+        { label: "Chiffre d'affaires", value: fcfa(totalCA) },
+        { label: "Solde encaissé", value: fcfa(cashRevenue) },
+        { label: "Dépenses", value: fcfa(totalExpenses) },
+        { label: "Solde net", value: fcfa(soldeNet) },
+      ],
+    };
+
+    const sections: ReportSection[] = [];
+
+    sections.push({
+      heading: "Répartition des paiements",
+      columns: [
+        { header: "Mode", key: "method", width: 2 },
+        { header: "Ventes", key: "count", align: "right" },
+        { header: "Montant", key: "amount", align: "right", width: 2 },
+      ],
+      rows: breakdown.map((p) => ({ method: p.method, count: String(p.count), amount: fcfa(p.amount) })),
+    });
+
+    sections.push({
+      heading: "Liste des ventes",
+      columns: [
+        { header: "Table", key: "table" },
+        { header: "Vendeur", key: "server", width: 2 },
+        { header: "Mode", key: "method" },
+        { header: "Statut", key: "status" },
+        { header: "Montant", key: "total", align: "right", width: 1.5 },
+      ],
+      rows: sales.map((s) => ({
+        table: s.table || "—",
+        server: s.server || "—",
+        method: s.method,
+        status: s.status,
+        total: fcfa(s.total),
+      })),
+    });
+
+    if (expenses.length > 0) {
+      sections.push({
+        heading: "Dépenses",
+        columns: [
+          { header: "Libellé", key: "label", width: 2 },
+          { header: "Catégorie", key: "category" },
+          { header: "Par", key: "createdBy" },
+          { header: "Montant", key: "amount", align: "right" },
+        ],
+        rows: expenses.map((e) => ({
+          label: e.label,
+          category: e.category,
+          createdBy: e.createdByName || "—",
+          amount: fcfa(e.amount),
+        })),
+      });
+    }
+
+    if (isOwner && byServer.length > 0) {
+      sections.push({
+        heading: "Par vendeur",
+        columns: [
+          { header: "Vendeur", key: "name", width: 2 },
+          { header: "Ventes", key: "count" },
+          { header: "Espèces", key: "especes", align: "right" },
+          { header: "Mobile", key: "mobile", align: "right" },
+          { header: "Crédit", key: "credit", align: "right" },
+          { header: "Total", key: "ca", align: "right" },
+        ],
+        rows: byServer.map((s) => ({
+          name: s.name,
+          count: String(s.count),
+          especes: fcfa(s.especes),
+          mobile: fcfa(s.mobile),
+          credit: fcfa(s.credit),
+          ca: fcfa(s.ca),
+        })),
+      });
+    }
+
+    if (isOwner && sessions.length > 0) {
+      sections.push({
+        heading: "Journées",
+        columns: [
+          { header: "Date", key: "date", width: 2 },
+          { header: "Ouverture", key: "opened" },
+          { header: "Clôture", key: "closed" },
+          { header: "Compté", key: "counted", align: "right" },
+          { header: "Écart", key: "ecart", align: "right" },
+        ],
+        rows: sessions.map((s) => ({
+          date: new Date(s.openedAt).toLocaleDateString("fr-FR"),
+          opened: fmtHm(s.openedAt),
+          closed: s.closedAt ? fmtHm(s.closedAt) : "En cours",
+          counted: s.countedAmount != null ? fcfa(s.countedAmount) : "—",
+          ecart: s.ecart != null ? `${s.ecart >= 0 ? "+" : ""}${fcfa(s.ecart)}` : "—",
+        })),
+      });
+    }
+
+    void shareReportPDF(meta, sections);
   };
 
   if (currentRole && currentRole !== "Propriétaire" && currentRole !== "Gérant") return null;
@@ -122,11 +236,19 @@ function Rapports() {
   return (
     <AppLayout>
       <div className="space-y-4">
-        <div>
-          <h1 className="text-lg font-bold text-foreground">{isOwner ? "Rapports & Bilan" : "Mon rapport"}</h1>
-          <p className="text-xs text-muted-foreground">
-            {isOwner ? "Vue propriétaire — historique complet" : `Vos ventes et dépenses · ${currentUserName}`}
-          </p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h1 className="text-lg font-bold text-foreground">{isOwner ? "Rapports & Bilan" : "Mon rapport"}</h1>
+            <p className="text-xs text-muted-foreground">
+              {isOwner ? "Vue propriétaire — historique complet" : `Vos ventes et dépenses · ${currentUserName}`}
+            </p>
+          </div>
+          <button
+            onClick={handleExportPDF}
+            className="flex shrink-0 items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-card active:scale-95"
+          >
+            <FileDown className="h-4 w-4" /> Exporter PDF
+          </button>
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -134,7 +256,12 @@ function Rapports() {
             <button
               key={s.key}
               onClick={() => applyShortcut(s.key)}
-              className="shrink-0 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold shadow-card active:scale-95"
+              className={cn(
+                "shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold active:scale-95 transition-colors",
+                activeShortcut === s.key
+                  ? "border-primary bg-primary text-primary-foreground shadow-card"
+                  : "border-border bg-card text-foreground shadow-card"
+              )}
             >
               {s.label}
             </button>
@@ -144,12 +271,12 @@ function Rapports() {
         <div className="flex items-center gap-2">
           <div className="flex flex-1 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5">
             <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">Du</span>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+            <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setActiveShortcut(""); }}
               className="flex-1 min-w-0 bg-transparent text-sm text-foreground outline-none" />
           </div>
           <div className="flex flex-1 items-center gap-2 rounded-xl border border-border bg-background px-3 py-2.5">
             <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">Au</span>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+            <input type="date" value={to} onChange={(e) => { setTo(e.target.value); setActiveShortcut(""); }}
               className="flex-1 min-w-0 bg-transparent text-sm text-foreground outline-none" />
           </div>
         </div>
@@ -190,8 +317,8 @@ function Rapports() {
                   <p className="font-display text-base font-bold tabular-nums">{fcfa(soldeNet)}</p>
                 </div>
                 <div>
-                  <p className="text-[11px] text-primary-foreground/70">Sessions</p>
-                  <p className="font-display text-base font-bold">{sessions.length}</p>
+                  <p className="text-[11px] text-primary-foreground/70">Crédit</p>
+                  <p className="font-display text-base font-bold tabular-nums">{fcfa(totalCA - cashRevenue)}</p>
                 </div>
               </div>
             </div>
@@ -201,7 +328,7 @@ function Rapports() {
                 <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-success/20">
                   <ArrowDownLeft className="h-5 w-5 text-success" />
                 </div>
-                <p className="text-xs text-muted-foreground">Entrées caisse</p>
+                <p className="text-xs text-muted-foreground">Solde encaissé</p>
                 <p className="mt-0.5 font-display text-lg font-bold tabular-nums text-foreground">{fcfa(cashRevenue)}</p>
                 <p className="text-[11px] text-muted-foreground">{sales.filter((s) => s.method !== "Crédit").length} ventes</p>
               </div>

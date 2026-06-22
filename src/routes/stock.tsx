@@ -8,6 +8,7 @@ import { DrinkImage } from "@/components/DrinkImage";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, fcfa } from "@/lib/mock-data";
 import { getDrinksApi } from "@/lib/graphql/operations";
+import { useStore } from "@/lib/store";
 
 const normalize = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
@@ -17,6 +18,8 @@ export const Route = createFileRoute("/stock")({
 });
 
 function Stock() {
+  const { currentRole } = useStore();
+  const isOwner = currentRole === "Propriétaire";
   const { data: drinks = [] } = useQuery({ queryKey: ["drinks"], queryFn: () => getDrinksApi() });
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState("Toutes");
@@ -44,19 +47,23 @@ function Stock() {
             <h1 className="text-lg font-bold text-foreground">Stock & catalogue</h1>
             <p className="text-xs text-muted-foreground">{drinks.length} références actives</p>
           </div>
-          <button
-            onClick={() => setAddOpen(true)}
-            className="flex items-center gap-1 rounded-full bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
-          >
-            <Plus className="h-4 w-4" /> Boisson
-          </button>
+          {isOwner && (
+            <button
+              onClick={() => setAddOpen(true)}
+              className="flex items-center gap-1 rounded-full bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
+            >
+              <Plus className="h-4 w-4" /> Boisson
+            </button>
+          )}
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-2xl border border-border bg-card p-3 text-center shadow-card">
-            <p className="font-display text-lg font-extrabold text-foreground">{fcfa(value)}</p>
-            <p className="text-[11px] text-muted-foreground">Valeur stock</p>
-          </div>
+        <div className={cn("grid gap-2", isOwner ? "grid-cols-3" : "grid-cols-2")}>
+          {isOwner && (
+            <div className="rounded-2xl border border-border bg-card p-3 text-center shadow-card">
+              <p className="font-display text-lg font-extrabold text-foreground">{fcfa(value)}</p>
+              <p className="text-[11px] text-muted-foreground">Valeur stock</p>
+            </div>
+          )}
           <div className="rounded-2xl border border-warning/30 bg-warning/10 p-3 text-center">
             <p className="font-display text-lg font-extrabold text-warning">{low}</p>
             <p className="text-[11px] text-muted-foreground">Sous seuil</p>
@@ -148,7 +155,7 @@ function Stock() {
         </div>
       </div>
 
-      <AddDrinkSheet open={addOpen} onClose={() => setAddOpen(false)} />
+      {isOwner && <AddDrinkSheet open={addOpen} onClose={() => setAddOpen(false)} />}
     </AppLayout>
   );
 }

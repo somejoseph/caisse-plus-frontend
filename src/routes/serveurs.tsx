@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { fcfa, type ServerRole } from "@/lib/mock-data";
 import {
   getServersApi, getTablesApi, getUsersApi, createServerApi, updateServerApi,
-  createTableApi, updateTableStatusApi, createGerantApi, updateUserApi,
+  createTableApi, updateTableStatusApi, deleteTableApi, createGerantApi, updateUserApi,
   deactivateUserApi, reactivateUserApi,
   type GerantUser,
 } from "@/lib/graphql/operations";
@@ -73,6 +73,10 @@ function Serveurs() {
   });
   const updateTableStatusMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: TableStatus }) => updateTableStatusApi(id, status),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["tables"] }),
+  });
+  const deleteTableMut = useMutation({
+    mutationFn: deleteTableApi,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["tables"] }),
   });
   const createGerantMut = useMutation({
@@ -232,16 +236,32 @@ function Serveurs() {
             <p className="text-[11px] text-muted-foreground">Touchez une table pour changer son statut</p>
             <div className="grid grid-cols-2 gap-3">
               {tables.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => cycleTable(t.id, t.status)}
-                  className={cn("flex flex-col items-center justify-center rounded-2xl border-2 py-6 shadow-card active:scale-[0.98]", statusStyle[t.status])}
-                >
-                  <Users className="mb-1 h-5 w-5 opacity-70" />
-                  <p className="font-display text-base font-extrabold text-foreground">{t.name}</p>
-                  <p className="text-xs text-muted-foreground">{t.seats} places</p>
-                  <span className="mt-1 text-[11px] font-bold">{t.status}</span>
-                </button>
+                <div key={t.id} className="relative">
+                  <button
+                    onClick={() => cycleTable(t.id, t.status)}
+                    className={cn("flex w-full flex-col items-center justify-center rounded-2xl border-2 py-6 shadow-card active:scale-[0.98]", statusStyle[t.status])}
+                  >
+                    <Users className="mb-1 h-5 w-5 opacity-70" />
+                    <p className="font-display text-base font-extrabold text-foreground">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">{t.seats} places</p>
+                    <span className="mt-1 text-[11px] font-bold">{t.status}</span>
+                  </button>
+                  {isOwner && (
+                    <button
+                      onClick={() => {
+                        if (!confirm(`Supprimer "${t.name}" ?`)) return;
+                        void deleteTableMut.mutateAsync(t.id).then(() =>
+                          toast.success(`${t.name} supprimée`)
+                        ).catch(() => toast.error("Impossible de supprimer cette table."));
+                      }}
+                      disabled={deleteTableMut.isPending}
+                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-destructive/80 text-white shadow-sm active:scale-95 disabled:opacity-50"
+                      aria-label="Supprimer la table"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               ))}
               {tables.length === 0 && (
                 <p className="col-span-2 py-10 text-center text-sm text-muted-foreground">Aucune table configurée.</p>

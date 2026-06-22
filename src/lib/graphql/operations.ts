@@ -24,7 +24,7 @@ interface ApiDrink {
 interface ApiSale {
   id: string; ticketNumber: string; tableName: string; serverName: string;
   total: number; method: string; status: string; saleTime: string;
-  itemsCount: number; daySessionId: string | null;
+  itemsCount: number; daySessionId: string | null; createdAt: string;
 }
 
 interface ApiExpense {
@@ -95,6 +95,7 @@ export function adaptSale(s: ApiSale): SaleEntry {
     total: s.total,
     method: (METHOD_LABEL[s.method] ?? s.method) as SaleEntry['method'],
     time: s.saleTime,
+    date: s.createdAt.slice(0, 10),
     items: s.itemsCount,
     status: (STATUS_LABEL[s.status] ?? s.status) as SaleEntry['status'],
   };
@@ -188,9 +189,9 @@ export async function restockDrinkApi(input: {
 
 // ─── Sales ───────────────────────────────────────────────────────────────────
 
-export async function getSalesApi(limit?: number, from?: string, to?: string): Promise<SaleEntry[]> {
+export async function getSalesApi(limit?: number, from?: string, to?: string, serverName?: string): Promise<SaleEntry[]> {
   const sales = await apiFetch<ApiSale[]>('GET', '/sales', {
-    params: { limit, from, to },
+    params: { limit, from, to, serverName },
   });
   return sales.map(adaptSale);
 }
@@ -465,7 +466,7 @@ export async function getSaleDetailApi(id: string): Promise<SaleDetail> {
 export interface ReportSale {
   id: string; ticketNumber: string; table: string; server: string;
   serverId: string | null; total: number; method: string;
-  time: string; date: string;
+  status: string; time: string; date: string;
 }
 
 export interface ReportExpense {
@@ -499,6 +500,7 @@ export async function getReportSalesApi(params: { from?: string; to?: string; se
     serverId: s.serverId,
     total: s.total,
     method: METHOD_LABEL[s.method] ?? s.method,
+    status: s.status,
     time: s.saleTime,
     date: s.createdAt.slice(0, 10),
   }));
@@ -528,6 +530,112 @@ export async function getReportDaySessionsApi(params: { from?: string; to?: stri
     countedAmount: s.countedAmount ?? null,
     ecart: s.ecart ?? null,
   }));
+}
+
+// ─── Establishment ────────────────────────────────────────────────────────────
+
+interface ApiEstablishment {
+  id: string; name: string; code: string; type: string;
+  city: string | null; phone: string | null; logoUrl: string | null; active: boolean;
+}
+
+export interface EstablishmentInfo {
+  id: string; name: string; code: string; type: string;
+  city: string | null; phone: string | null; logoUrl: string | null;
+}
+
+export async function getEstablishmentApi(): Promise<EstablishmentInfo> {
+  const e = await apiFetch<ApiEstablishment>('GET', '/establishments/me');
+  return { id: e.id, name: e.name, code: e.code, type: e.type, city: e.city, phone: e.phone, logoUrl: e.logoUrl };
+}
+
+export async function updateEstablishmentApi(input: {
+  name?: string; type?: string; city?: string; phone?: string; logoUrl?: string;
+}): Promise<EstablishmentInfo> {
+  const e = await apiFetch<ApiEstablishment>('PATCH', '/establishments/me', { body: input });
+  return { id: e.id, name: e.name, code: e.code, type: e.type, city: e.city, phone: e.phone, logoUrl: e.logoUrl };
+}
+
+// ─── Drinks update / delete ───────────────────────────────────────────────────
+
+export async function updateDrinkApi(id: string, input: {
+  name?: string; category?: string; size?: string; price?: number;
+  cost?: number; stock?: number; threshold?: number; imageData?: string; active?: boolean;
+}): Promise<Drink> {
+  const d = await apiFetch<ApiDrink>('PATCH', `/drinks/${id}`, { body: input });
+  return adaptDrink(d);
+}
+
+export async function deleteDrinkApi(id: string): Promise<Drink> {
+  const d = await apiFetch<ApiDrink>('DELETE', `/drinks/${id}`);
+  return adaptDrink(d);
+}
+
+// ─── Suppliers update / delete ────────────────────────────────────────────────
+
+export async function updateSupplierApi(id: string, input: {
+  name?: string; contact?: string; phone?: string; category?: string; note?: string; active?: boolean;
+}): Promise<Supplier> {
+  const s = await apiFetch<ApiSupplier>('PATCH', `/suppliers/${id}`, { body: input });
+  return adaptSupplier(s);
+}
+
+export async function deleteSupplierApi(id: string): Promise<void> {
+  await apiFetch<unknown>('DELETE', `/suppliers/${id}`);
+}
+
+// ─── Tables update / delete ───────────────────────────────────────────────────
+
+export async function updateTableApi(id: string, input: {
+  name?: string; seats?: number; active?: boolean;
+}): Promise<TableItem> {
+  const t = await apiFetch<ApiTable>('PATCH', `/tables/${id}`, { body: input });
+  return adaptTable(t);
+}
+
+export async function deleteTableApi(id: string): Promise<void> {
+  await apiFetch<unknown>('DELETE', `/tables/${id}`);
+}
+
+// ─── Cancel sale ──────────────────────────────────────────────────────────────
+
+export async function cancelSaleApi(id: string): Promise<SaleEntry> {
+  const s = await apiFetch<ApiSale>('POST', `/sales/${id}/cancel`);
+  return adaptSale(s);
+}
+
+// ─── Stock movements ──────────────────────────────────────────────────────────
+
+export interface ApiStockMovement {
+  id: string; drinkId: string; movementType: string;
+  quantity: number; unitCost: number | null; totalCost: number | null;
+  supplierId: string | null; note: string | null; createdAt: string;
+}
+
+export async function getStockMovementsApi(drinkId?: string, limit?: number): Promise<ApiStockMovement[]> {
+  return apiFetch<ApiStockMovement[]>('GET', '/stock/movements', { params: { drinkId, limit } });
+}
+
+// ─── Inventory sessions ───────────────────────────────────────────────────────
+
+export interface ApiInventoryItem {
+  id: string; drinkId: string | null; drinkName: string; drinkSize: string;
+  theoreticalStock: number; countedStock: number; diff: number | null;
+  unitCost: number; ecartValue: number | null;
+}
+
+export interface ApiInventorySession {
+  id: string; totalEcartValue: number; itemsCounted: number;
+  notes: string | null; createdAt: string;
+  items: ApiInventoryItem[];
+}
+
+export async function getInventorySessionsApi(limit?: number): Promise<ApiInventorySession[]> {
+  return apiFetch<ApiInventorySession[]>('GET', '/inventory', { params: { limit } });
+}
+
+export async function getInventorySessionDetailApi(id: string): Promise<ApiInventorySession> {
+  return apiFetch<ApiInventorySession>('GET', `/inventory/${id}`);
 }
 
 // Re-export adapters for convenience

@@ -1,10 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ShieldCheck, ShieldAlert, Eye, Trash2, Pencil, DoorOpen } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { cn } from "@/lib/utils";
 import { getAuditLogApi, type AuditEntry } from "@/lib/graphql/operations";
 import { fmtTime } from "@/lib/graphql/adapters";
+import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/audit")({
   component: Audit,
@@ -44,12 +46,21 @@ function getIcon(eventType: string) {
 }
 
 function Audit() {
+  const navigate = useNavigate();
+  const { currentRole } = useStore();
+
+  useEffect(() => {
+    if (currentRole && currentRole !== "Propriétaire") void navigate({ to: "/" });
+  }, [currentRole, navigate]);
+
   const { data: events = [] } = useQuery({
     queryKey: ["auditLog"],
     queryFn: () => getAuditLogApi(50),
   });
 
   const alerts = events.filter((e) => (LEVEL_MAP[e.level] ?? "info") !== "info").length;
+
+  if (currentRole !== "Propriétaire") return null;
 
   return (
     <AppLayout>

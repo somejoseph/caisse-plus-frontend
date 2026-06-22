@@ -57,8 +57,9 @@ export interface SaleEntry {
   total: number;
   method: "Espèces" | "Mobile Money" | "Crédit";
   time: string;
+  date?: string;
   items: number;
-  status: "Payée" | "Non payée";
+  status: "Payée" | "Non payée" | "Annulée";
 }
 
 export const RECENT_SALES: SaleEntry[] = [

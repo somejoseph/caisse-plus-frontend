@@ -6,13 +6,14 @@ import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { BottomSheet, Field, inputClass } from "@/components/BottomSheet";
 import { cn } from "@/lib/utils";
-import { fcfa, WEEK_SALES, type SaleEntry, type Expense } from "@/lib/mock-data";
+import { fcfa, type SaleEntry, type Expense } from "@/lib/mock-data";
 import {
   getDrinksApi, getSalesApi, getExpensesApi, getCurrentDaySessionApi,
   openDaySessionApi, closeDaySessionApi,
 } from "@/lib/graphql/operations";
 import { SaleDetailSheet } from "@/components/SaleDetailSheet";
 import { METHOD_LABEL } from "@/lib/graphql/adapters";
+import { useStore } from "@/lib/store";
 
 export const Route = createFileRoute("/")({
   component: Home,
@@ -31,16 +32,57 @@ function Home() {
   const [closeSheetVisible, setCloseSheetVisible] = useState(false);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
 
+  const today = new Date().toISOString().slice(0, 10);
+
   const { data: drinks = [] } = useQuery({ queryKey: ["drinks"], queryFn: () => getDrinksApi() });
-  const { data: sales = [] } = useQuery({ queryKey: ["sales"], queryFn: () => getSalesApi(50) });
-  const { data: expenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => getExpensesApi(200) });
   const { data: daySession } = useQuery({ queryKey: ["daySession"], queryFn: getCurrentDaySessionApi });
+  const { data: sales = [] } = useQuery({
+    queryKey: ["sales", today],
+    queryFn: () => getSalesApi(500, today, today),
+  });
+  const { data: expenses = [] } = useQuery({
+    queryKey: ["expenses", daySession?.id],
+    queryFn: () => getExpensesApi(200, daySession?.id),
+    enabled: daySession !== undefined,
+  });
+
+  const from14 = new Date(Date.now() - 13 * 86400000).toISOString().slice(0, 10);
+  const { data: chartSales = [] } = useQuery({
+    queryKey: ["sales", "chart14", today],
+    queryFn: () => getSalesApi(5000, from14, today),
+  });
 
   const dayOpen = !!daySession;
   const outOfStock = drinks.filter((d) => d.stock === 0).length;
   const lowStock = drinks.filter((d) => d.stock > 0 && d.stock <= d.threshold).length;
-  const maxBar = Math.max(...WEEK_SALES.map((w) => w.value));
-  const totalCA = sales.reduce((s, v) => s + v.total, 0);
+  const activeSales = sales.filter((s) => s.status !== "Annulée");
+  const totalCA = activeSales.reduce((s, v) => s + v.total, 0);
+
+  const DAY_SHORT = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+  const days14 = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(Date.now() - (13 - i) * 86400000);
+    const date = d.toISOString().slice(0, 10);
+    return {
+      date,
+      label: DAY_SHORT[d.getDay()],
+      total: chartSales
+        .filter((s) => s.date === date && s.status !== "Annulée")
+        .reduce((a, s) => a + s.total, 0),
+    };
+  });
+  const prevWeekTotal = days14.slice(0, 7).reduce((a, d) => a + d.total, 0);
+  const thisWeekTotal = days14.slice(7).reduce((a, d) => a + d.total, 0);
+  const pctChange = prevWeekTotal > 0
+    ? Math.round(((thisWeekTotal - prevWeekTotal) / prevWeekTotal) * 100)
+    : null;
+  const chartDays = days14.slice(7);
+  const chartMax = Math.max(...chartDays.map((d) => d.total), 1);
+
+  const { currentRole } = useStore();
+  const isOwner = currentRole === "Propriétaire";
+  const creditCA = activeSales
+    .filter((s) => s.method === "Crédit")
+    .reduce((a, s) => a + s.total, 0);
 
   return (
     <AppLayout>
@@ -80,19 +122,20 @@ function Home() {
           </div>
         )}
 
-        {/* Hero CA */}
-        <div className="overflow-hidden rounded-3xl bg-brand-gradient p-5 text-primary-foreground shadow-elevated">
-          <p className="text-sm font-medium text-primary-foreground/80">Chiffre d'affaires du jour</p>
-          <p className="mt-1 font-display text-4xl font-extrabold tabular-nums">{fcfa(totalCA)}</p>
-          <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold">
-            <TrendingUp className="h-3.5 w-3.5" /> Aujourd'hui
+        {!isOwner && (
+          <div className="overflow-hidden rounded-3xl bg-brand-gradient p-5 text-primary-foreground shadow-elevated">
+            <p className="text-sm font-medium text-primary-foreground/80">Chiffre d'affaires du jour</p>
+            <p className="mt-1 font-display text-4xl font-extrabold tabular-nums">{fcfa(totalCA)}</p>
+            <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold">
+              <TrendingUp className="h-3.5 w-3.5" /> Aujourd'hui
+            </div>
+            <div className="mt-5 grid grid-cols-3 gap-2 border-t border-white/15 pt-4">
+              <MiniStat label="Ventes" value={String(activeSales.length)} />
+              <MiniStat label="Panier moy." value={fcfa(activeSales.length ? totalCA / activeSales.length : 0)} />
+              <MiniStat label="Crédit" value={fcfa(creditCA)} />
+            </div>
           </div>
-          <div className="mt-5 grid grid-cols-3 gap-2 border-t border-white/15 pt-4">
-            <MiniStat label="Ventes" value={String(sales.length)} />
-            <MiniStat label="Panier moy." value={fcfa(sales.length ? totalCA / sales.length : 0)} />
-            <MiniStat label="Crédit" value={fcfa(sales.filter((s) => s.method === "Crédit").reduce((a, s) => a + s.total, 0))} />
-          </div>
-        </div>
+        )}
 
         {(outOfStock > 0 || lowStock > 0) && (
           <Link to="/stock" className="flex items-center justify-between rounded-2xl border border-accent/30 bg-accent/10 px-4 py-3">
@@ -126,13 +169,20 @@ function Home() {
         <section className="rounded-2xl border border-border bg-card p-4 shadow-card">
           <div className="mb-4 flex items-center justify-between">
             <SectionTitle title="Évolution 7 jours" noMargin />
-            <span className="text-xs font-semibold text-success">+12 %</span>
+            {pctChange !== null && (
+              <span className={`text-xs font-semibold ${pctChange >= 0 ? "text-success" : "text-destructive"}`}>
+                {pctChange >= 0 ? "+" : ""}{pctChange} %
+              </span>
+            )}
           </div>
           <div className="flex h-32 items-end justify-between gap-2">
-            {WEEK_SALES.map((w, i) => (
-              <div key={w.day} className="flex flex-1 flex-col items-center gap-1.5">
-                <div className={`w-full rounded-t-lg ${i === WEEK_SALES.length - 1 ? "bg-secondary" : "bg-primary/80"}`} style={{ height: `${(w.value / maxBar) * 100}%` }} />
-                <span className="text-[10px] font-medium text-muted-foreground">{w.day}</span>
+            {chartDays.map((d, i) => (
+              <div key={d.date} className="flex flex-1 flex-col items-center gap-1.5">
+                <div
+                  className={`w-full rounded-t-lg ${i === chartDays.length - 1 ? "bg-secondary" : "bg-primary/80"}`}
+                  style={{ height: `${(d.total / chartMax) * 100}%`, minHeight: d.total > 0 ? "3px" : "1px" }}
+                />
+                <span className="text-[10px] font-medium text-muted-foreground">{d.label}</span>
               </div>
             ))}
           </div>
@@ -144,25 +194,28 @@ function Home() {
             <Link to="/journal" className="text-xs font-semibold text-primary">Tout voir</Link>
           </div>
           <div className="mt-3 space-y-2">
-            {sales.slice(0, 4).map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSelectedSaleId(s.id)}
-                className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card active:scale-[0.99] text-left"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">{s.time.slice(0, 5)}</div>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{s.ticketNumber} · {s.table}</p>
-                    <p className="text-xs text-muted-foreground">{s.items} articles · {s.server}</p>
+            {sales.slice(0, 4).map((s) => {
+              const cancelled = s.status === "Annulée";
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedSaleId(s.id)}
+                  className={`flex w-full items-center justify-between rounded-2xl border px-4 py-3 shadow-card active:scale-[0.99] text-left ${cancelled ? "border-destructive/20 bg-card opacity-50" : "border-border bg-card"}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground">{s.time.slice(0, 5)}</div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{s.ticketNumber} · {s.table}</p>
+                      <p className="text-xs text-muted-foreground">{s.items} articles · {s.server}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold tabular-nums text-foreground">{fcfa(s.total)}</p>
-                  <MethodBadge method={s.method} />
-                </div>
-              </button>
-            ))}
+                  <div className="text-right">
+                    <p className={`text-sm font-bold tabular-nums ${cancelled ? "text-destructive line-through" : "text-foreground"}`}>{fcfa(s.total)}</p>
+                    {cancelled ? <span className="text-[10px] font-bold text-destructive">Annulée</span> : <MethodBadge method={s.method} />}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </section>
       </div>
@@ -211,7 +264,7 @@ function CloseDaySheet({ open, onClose, sales, expenses, onClosed }: { open: boo
   const [counted, setCounted] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const totalCA = sales.reduce((s, v) => s + v.total, 0);
+  const totalCA = sales.filter((s) => s.status !== "Annulée").reduce((s, v) => s + v.total, 0);
   const cashRevenue = sales.filter((v) => v.method !== "Crédit").reduce((s, v) => s + v.total, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
   const soldeTheorique = cashRevenue - totalExpenses;
