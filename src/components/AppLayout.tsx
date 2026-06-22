@@ -3,13 +3,14 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Home, Wallet, ScrollText, Plus, Menu, Bell, X, Boxes, Users, Truck,
   ClipboardCheck, BookOpen, QrCode, ShieldCheck, Building2, ChevronDown,
-  LogOut, MapPin, Hash, Check, Crown, Briefcase,
+  LogOut, MapPin, Hash, Check, Crown, Briefcase, BarChart2, Landmark,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/lib/store";
 import { getUnreadCountApi } from "@/lib/graphql/operations";
+import { setUnauthorizedHandler } from "@/lib/gql-client";
 import logo from "@/assets/logo.png";
 
 const navItems = [
@@ -26,8 +27,10 @@ const drawerLinks = [
   { to: "/fournisseurs", label: "Fournisseurs", icon: Building2 },
   { to: "/inventaire", label: "Inventaire", icon: ClipboardCheck },
   { to: "/catalogue", label: "Catalogue boissons", icon: BookOpen },
+  { to: "/rapports", label: "Rapports & Bilan", icon: BarChart2 },
+  { to: "/tresorerie", label: "Trésorerie", icon: Landmark, ownerOnly: true },
+  { to: "/audit", label: "Anti-fraude & audit", icon: ShieldCheck, ownerOnly: true },
   { to: "/qr-menu", label: "QR Code menu", icon: QrCode },
-  { to: "/audit", label: "Anti-fraude & audit", icon: ShieldCheck },
 ];
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -41,6 +44,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
     if (!loggedIn) navigate({ to: "/connexion" });
   }, [loggedIn, navigate]);
 
+  // Auto-logout si le serveur répond 401 (token expiré)
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      logout();
+      navigate({ to: "/connexion" });
+    });
+  }, [logout, navigate]);
+
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ["unreadCount"],
     queryFn: getUnreadCountApi,
@@ -52,16 +63,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const userInitials = currentUserName.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
   const visibleDrawerLinks = currentRole === "Propriétaire"
     ? drawerLinks
-    : drawerLinks.filter((l) => l.to !== "/audit");
+    : drawerLinks.filter((l) => !(l as { ownerOnly?: boolean }).ownerOnly);
 
   const handleLogout = () => {
     setDrawerOpen(false);
     logout();
     toast.success("Déconnexion réussie");
-    navigate({ to: "/connexion" });
+    // La navigation vers /connexion est gérée par le useEffect (loggedIn → false)
   };
 
-  if (!loggedIn) return null;
+  if (!loggedIn) return <div className="min-h-screen bg-background" />;
 
   const estab = establishment ?? { name: "Caisse+", code: "—", type: "Maquis", city: null, logoUrl: null };
   const logoSrc = estab.logoUrl ?? logo;
@@ -142,25 +153,35 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
         {/* Bottom navigation */}
         <nav className="fixed bottom-0 left-1/2 z-30 w-full max-w-md -translate-x-1/2 border-t border-border bg-card/95 backdrop-blur">
-          <div className="grid grid-cols-5 items-end px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
-            {navItems.slice(0, 2).map((item) => (
-              <NavTab key={item.label} {...item} active={pathname === item.to} />
-            ))}
-            <div className="flex justify-center">
-              <Link
-                to="/ventes"
-                className="-mt-8 flex h-16 w-16 flex-col items-center justify-center rounded-full bg-brand-gradient text-primary-foreground shadow-elevated ring-4 ring-background active:scale-95"
-              >
-                <Plus className="h-6 w-6" />
-                <span className="text-[10px] font-bold">Vendre</span>
-              </Link>
+          {currentRole === "Propriétaire" ? (
+            <div className="grid grid-cols-5 items-end px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+              <NavTab to="/" label="Accueil" icon={Home} active={pathname === "/"} />
+              <NavTab to="/caisse" label="Caisse" icon={Wallet} active={pathname === "/caisse"} />
+              <NavTab to="/rapports" label="Rapports" icon={BarChart2} active={pathname === "/rapports"} />
+              <NavTab to="/tresorerie" label="Trésorerie" icon={Landmark} active={pathname === "/tresorerie"} />
+              <NavTab to="/audit" label="Audit" icon={ShieldCheck} active={pathname === "/audit"} />
             </div>
-            <NavTab {...navItems[2]} active={pathname === "/journal"} />
-            <button onClick={() => setDrawerOpen(true)} className="flex flex-col items-center gap-1 py-1 text-muted-foreground">
-              <Menu className="h-5 w-5" />
-              <span className="text-[10px] font-semibold">Menu</span>
-            </button>
-          </div>
+          ) : (
+            <div className="grid grid-cols-5 items-end px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2">
+              {navItems.slice(0, 2).map((item) => (
+                <NavTab key={item.label} {...item} active={pathname === item.to} />
+              ))}
+              <div className="flex justify-center">
+                <Link
+                  to="/ventes"
+                  className="-mt-8 flex h-16 w-16 flex-col items-center justify-center rounded-full bg-brand-gradient text-primary-foreground shadow-elevated ring-4 ring-background active:scale-95"
+                >
+                  <Plus className="h-6 w-6" />
+                  <span className="text-[10px] font-bold">Vendre</span>
+                </Link>
+              </div>
+              <NavTab {...navItems[2]} active={pathname === "/journal"} />
+              <button onClick={() => setDrawerOpen(true)} className="flex flex-col items-center gap-1 py-1 text-muted-foreground">
+                <Menu className="h-5 w-5" />
+                <span className="text-[10px] font-semibold">Menu</span>
+              </button>
+            </div>
+          )}
         </nav>
       </div>
 
@@ -217,7 +238,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <LogOut className="h-5 w-5" />
                 Déconnexion
               </button>
-              <p className="px-2 pt-2 text-xs text-muted-foreground">Caisse+ v2.1 · Sohapigroup</p>
+              <p className="px-2 pt-2 text-xs text-muted-foreground">Caisse+ v2.1 · JS-DEV · tout droits reservés</p>
             </div>
           </aside>
         </div>

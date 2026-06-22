@@ -8,6 +8,10 @@ export default defineConfig({
   server: {
     host: true,   // écoute sur 0.0.0.0, accessible depuis le téléphone
     port: 5173,
+    proxy: {
+      '/graphql': { target: 'http://localhost:3000', changeOrigin: true },
+      '/upload':  { target: 'http://localhost:3000', changeOrigin: true },
+    },
   },
   plugins: [
     TanStackRouterVite({

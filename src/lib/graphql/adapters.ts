@@ -70,7 +70,8 @@ export const SERVER_ROLE_KEY: Record<string, string> = {
 
 // ─── NotifTone — same values in DB and frontend ───────────────────────────────
 export function toNotifTone(v: string): NotifTone {
-  return (v as NotifTone) ?? 'info';
+  const valid: NotifTone[] = ['info', 'warning', 'success', 'danger'];
+  return valid.includes(v as NotifTone) ? (v as NotifTone) : 'info';
 }
 
 // ─── Time helper ─────────────────────────────────────────────────────────────

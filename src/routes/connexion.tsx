@@ -26,19 +26,19 @@ function Connexion() {
 
   const submit = async () => {
     if (!code.trim() || pin.length < 4) {
-      toast.error("Code établissement et PIN à 4 chiffres obligatoires.");
+      toast.error("Code établissement et mot de passe (4 caractères min.) obligatoires.");
       return;
     }
     setLoading(true);
     try {
       const payload = await loginApi(code.trim(), pin);
-      const role = (USER_ROLE_LABEL[payload.user.role] ?? payload.user.role) as UserRole;
+      const role = (USER_ROLE_LABEL[payload.user.role] ?? 'Gérant') as UserRole;
       login(payload.accessToken, { ...payload.user, role }, payload.establishment);
       toast.success(`Bienvenue, ${payload.user.name}`, { description: `Connecté en tant que ${role}` });
-      navigate({ to: "/" });
+      // La navigation vers "/" est gérée par le useEffect ci-dessus (loggedIn → true)
     } catch {
       setError(true);
-      toast.error("Code établissement ou PIN incorrect.");
+      toast.error("Code établissement ou mot de passe incorrect.");
     } finally {
       setLoading(false);
     }
@@ -55,7 +55,7 @@ function Connexion() {
 
         <div className="rounded-3xl bg-card p-6 text-foreground shadow-float">
           <h1 className="text-lg font-bold">Connexion</h1>
-          <p className="text-xs text-muted-foreground">Entre ton code établissement et ton PIN</p>
+          <p className="text-xs text-muted-foreground">Entre ton code établissement et ton mot de passe</p>
 
           <label className="mt-5 block">
             <span className="mb-1 block text-xs font-semibold text-muted-foreground">Code établissement</span>
@@ -72,7 +72,7 @@ function Connexion() {
           </label>
 
           <label className="mt-3 block">
-            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Code PIN</span>
+            <span className="mb-1 block text-xs font-semibold text-muted-foreground">Mot de passe</span>
             <div className={`flex items-center gap-2 rounded-xl border bg-background px-3 ${error ? "border-destructive" : "border-border"}`}>
               <Lock className="h-4 w-4 text-muted-foreground" />
               <input
@@ -85,7 +85,7 @@ function Connexion() {
             </div>
           </label>
 
-          {error && <p className="mt-2 text-xs font-semibold text-destructive">Code établissement ou PIN incorrect.</p>}
+          {error && <p className="mt-2 text-xs font-semibold text-destructive">Code établissement ou mot de passe incorrect.</p>}
 
           <button
             onClick={submit}

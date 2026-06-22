@@ -1,8 +1,12 @@
 import { TOKEN_KEY } from './gql-client';
 
 const BASE_URL = (() => {
-  const apiUrl = (import.meta as unknown as { env: Record<string, string> }).env.VITE_API_URL ?? 'http://localhost:3000/graphql';
-  return apiUrl.replace(/\/graphql$/, '');
+  const envUrl = (import.meta as unknown as { env: Record<string, string> }).env.VITE_API_URL;
+  if (envUrl) {
+    const full = envUrl.startsWith('/') ? `${window.location.origin}${envUrl}` : envUrl;
+    return full.replace(/\/graphql$/, '');
+  }
+  return window.location.origin;
 })();
 
 export async function uploadImage(file: File, folder: 'drinks' | 'logos'): Promise<string> {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import { setToken, clearToken } from "./gql-client";
+import { setToken, clearToken, TOKEN_KEY } from "./gql-client";
 
 export type UserRole = "Propriétaire" | "Gérant";
 export type NotifTone = "info" | "warning" | "success" | "danger";
@@ -51,6 +51,7 @@ const AUTH_KEY = "caisse_auth";
 
 function loadSaved(): { user: AuthUser; establishment: AuthEstablishment } | null {
   try {
+    if (!localStorage.getItem(TOKEN_KEY)) return null;
     const raw = localStorage.getItem(AUTH_KEY);
     return raw ? (JSON.parse(raw) as { user: AuthUser; establishment: AuthEstablishment }) : null;
   } catch {

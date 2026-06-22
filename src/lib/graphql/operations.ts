@@ -5,7 +5,7 @@ import {
   USER_ROLE_LABEL, toNotifTone, fmtTime, fmtDate,
 } from './adapters';
 import type { Drink, Category, SaleEntry, Expense, Supplier, ServerRole } from '@/lib/mock-data';
-import type { ServerItem, TableItem, AppNotification, UserRole, TableStatus, NotifTone } from '@/lib/store';
+import type { ServerItem, TableItem, AppNotification, UserRole, TableStatus } from '@/lib/store';
 
 // ─── Raw API shapes ───────────────────────────────────────────────────────────
 
@@ -28,7 +28,8 @@ interface ApiSale {
 }
 
 interface ApiExpense {
-  id: string; label: string; category: string; amount: number; expenseTime: string;
+  id: string; label: string; category: string; amount: number;
+  expenseTime: string; createdByName: string | null;
 }
 
 interface ApiServer {
@@ -48,6 +49,7 @@ interface ApiSupplier {
 interface ApiDaySession {
   id: string; openedAt: string; closedAt: string | null;
   openedByServerId: string | null; openedByUserId: string | null;
+  openedByName: string | null;
 }
 
 interface ApiNotification {
@@ -55,7 +57,7 @@ interface ApiNotification {
 }
 
 interface ApiUser {
-  id: string; name: string; role: string; active: boolean; createdAt: string;
+  id: string; name: string; phone: string | null; role: string; active: boolean; createdAt: string;
 }
 
 interface ApiAuditEntry {
@@ -81,19 +83,20 @@ export function adaptDrink(d: ApiDrink): Drink {
 
 export function adaptSale(s: ApiSale): SaleEntry {
   return {
-    id: s.ticketNumber,
+    id: s.id,
+    ticketNumber: s.ticketNumber,
     table: s.tableName,
     server: s.serverName,
     total: s.total,
     method: (METHOD_LABEL[s.method] ?? s.method) as SaleEntry['method'],
-    time: s.saleTime?.slice(0, 5) ?? '—',
+    time: s.saleTime,
     items: s.itemsCount,
     status: (STATUS_LABEL[s.status] ?? s.status) as SaleEntry['status'],
   };
 }
 
 export function adaptExpense(e: ApiExpense): Expense {
-  return { id: e.id, label: e.label, category: e.category, amount: e.amount, time: e.expenseTime?.slice(0, 5) ?? '—' };
+  return { id: e.id, label: e.label, category: e.category, amount: e.amount, time: e.expenseTime, createdByName: e.createdByName };
 }
 
 export function adaptServer(s: ApiServer): ServerItem {
@@ -171,7 +174,7 @@ export async function loginApi(establishmentCode: string, pin: string): Promise<
 
 export async function registerApi(input: {
   ownerName: string; establishmentName: string;
-  city?: string; establishmentType?: string; pin: string; logoUrl?: string;
+  phone: string; city?: string; establishmentType?: string; pin: string; logoUrl?: string;
 }): Promise<ApiAuthPayload> {
   const data = await gqlClient.request<{ register: ApiAuthPayload }>(REGISTER_MUTATION, { input });
   return data.register;
@@ -222,8 +225,8 @@ export async function restockDrinkApi(input: {
 // ─── Sales ───────────────────────────────────────────────────────────────────
 
 const SALES_QUERY = `
-  query Sales($limit: Int) {
-    sales(limit: $limit) {
+  query Sales($limit: Int, $from: String, $to: String) {
+    sales(limit: $limit, from: $from, to: $to) {
       id ticketNumber tableName serverName total method status saleTime itemsCount daySessionId
     }
   }
@@ -235,8 +238,8 @@ const RECORD_SALE_MUTATION = `
   }
 `;
 
-export async function getSalesApi(limit?: number): Promise<SaleEntry[]> {
-  const data = await gqlClient.request<{ sales: ApiSale[] }>(SALES_QUERY, { limit });
+export async function getSalesApi(limit?: number, from?: string, to?: string): Promise<SaleEntry[]> {
+  const data = await gqlClient.request<{ sales: ApiSale[] }>(SALES_QUERY, { limit, from, to });
   return data.sales.map(adaptSale);
 }
 
@@ -253,19 +256,19 @@ export async function recordSaleApi(input: {
 // ─── Expenses ─────────────────────────────────────────────────────────────────
 
 const EXPENSES_QUERY = `
-  query Expenses($limit: Int) {
-    expenses(limit: $limit) { id label category amount expenseTime daySessionId }
+  query Expenses($limit: Int, $daySessionId: ID) {
+    expenses(limit: $limit, daySessionId: $daySessionId) { id label category amount expenseTime daySessionId createdByName }
   }
 `;
 
 const ADD_EXPENSE_MUTATION = `
   mutation AddExpense($input: AddExpenseInput!) {
-    addExpense(input: $input) { id label category amount expenseTime }
+    addExpense(input: $input) { id label category amount expenseTime createdByName }
   }
 `;
 
-export async function getExpensesApi(limit?: number): Promise<Expense[]> {
-  const data = await gqlClient.request<{ expenses: ApiExpense[] }>(EXPENSES_QUERY, { limit });
+export async function getExpensesApi(limit?: number, daySessionId?: string): Promise<Expense[]> {
+  const data = await gqlClient.request<{ expenses: ApiExpense[] }>(EXPENSES_QUERY, { limit, daySessionId });
   return data.expenses.map(adaptExpense);
 }
 
@@ -280,13 +283,13 @@ export async function addExpenseApi(input: {
 
 const CURRENT_DAY_SESSION_QUERY = `
   query CurrentDaySession {
-    currentDaySession { id openedAt closedAt openedByServerId openedByUserId }
+    currentDaySession { id openedAt closedAt openedByServerId openedByUserId openedByName }
   }
 `;
 
 const OPEN_DAY_SESSION_MUTATION = `
   mutation OpenDaySession($input: OpenDaySessionInput!) {
-    openDaySession(input: $input) { id openedAt }
+    openDaySession(input: $input) { id openedAt closedAt openedByServerId openedByUserId openedByName }
   }
 `;
 
@@ -299,7 +302,7 @@ const CLOSE_DAY_SESSION_MUTATION = `
 export interface DaySessionInfo {
   id: string;
   openedAt: string;
-  openedBy: string;
+  openedByName: string | null;
   date: string;
 }
 
@@ -310,20 +313,18 @@ export async function getCurrentDaySessionApi(): Promise<DaySessionInfo | null> 
   return {
     id: s.id,
     openedAt: fmtTime(s.openedAt),
-    openedBy: '',
+    openedByName: s.openedByName,
     date: fmtDate(s.openedAt),
   };
 }
 
-export async function openDaySessionApi(input: {
-  serverId?: string; serverName?: string;
-}): Promise<DaySessionInfo> {
-  const data = await gqlClient.request<{ openDaySession: ApiDaySession }>(OPEN_DAY_SESSION_MUTATION, { input });
+export async function openDaySessionApi(): Promise<DaySessionInfo> {
+  const data = await gqlClient.request<{ openDaySession: ApiDaySession }>(OPEN_DAY_SESSION_MUTATION, { input: {} });
   const s = data.openDaySession;
   return {
     id: s.id,
     openedAt: fmtTime(s.openedAt),
-    openedBy: input.serverName ?? '',
+    openedByName: s.openedByName,
     date: fmtDate(s.openedAt),
   };
 }
@@ -483,31 +484,38 @@ export async function markAllNotificationsReadApi(): Promise<void> {
 
 const USERS_QUERY = `
   query Users {
-    users { id name role active createdAt }
+    users { id name phone role active createdAt }
   }
 `;
 
 const CREATE_GERANT_MUTATION = `
-  mutation CreateGerant($input: CreateGerantInput!) {
-    createGerant(input: $input) { id name role active }
+  mutation CreateGerant($input: CreateUserInput!) {
+    createGerant(input: $input) { id name phone role active }
   }
 `;
 
 const DEACTIVATE_USER_MUTATION = `
-  mutation DeactivateUser($userId: ID!) {
-    deactivateUser(userId: $userId) { id active }
+  mutation DeactivateUser($id: ID!) {
+    deactivateUser(id: $id) { id active }
+  }
+`;
+
+const REACTIVATE_USER_MUTATION = `
+  mutation ReactivateUser($id: ID!) {
+    reactivateUser(id: $id) { id active }
   }
 `;
 
 const UPDATE_USER_MUTATION = `
   mutation UpdateUser($id: ID!, $input: UpdateUserInput!) {
-    updateUser(id: $id, input: $input) { id name role active }
+    updateUser(id: $id, input: $input) { id name phone role active }
   }
 `;
 
 export interface GerantUser {
   id: string;
   name: string;
+  phone: string | null;
   role: UserRole;
   active: boolean;
 }
@@ -517,26 +525,32 @@ export async function getUsersApi(): Promise<GerantUser[]> {
   return data.users.map((u) => ({
     id: u.id,
     name: u.name,
+    phone: u.phone,
     role: (USER_ROLE_LABEL[u.role] ?? u.role) as UserRole,
     active: u.active,
   }));
 }
 
-export async function createGerantApi(input: { name: string; pin: string }): Promise<GerantUser> {
+export async function createGerantApi(input: { name: string; phone: string; pin: string }): Promise<GerantUser> {
   const data = await gqlClient.request<{ createGerant: ApiUser }>(CREATE_GERANT_MUTATION, { input });
   return {
     id: data.createGerant.id,
     name: data.createGerant.name,
+    phone: data.createGerant.phone,
     role: (USER_ROLE_LABEL[data.createGerant.role] ?? 'Gérant') as UserRole,
     active: data.createGerant.active,
   };
 }
 
 export async function deactivateUserApi(userId: string): Promise<void> {
-  await gqlClient.request(DEACTIVATE_USER_MUTATION, { userId });
+  await gqlClient.request(DEACTIVATE_USER_MUTATION, { id: userId });
 }
 
-export async function updateUserApi(id: string, input: { active?: boolean; name?: string }): Promise<void> {
+export async function reactivateUserApi(userId: string): Promise<void> {
+  await gqlClient.request(REACTIVATE_USER_MUTATION, { id: userId });
+}
+
+export async function updateUserApi(id: string, input: { active?: boolean; name?: string; phone?: string; pin?: string }): Promise<void> {
   await gqlClient.request(UPDATE_USER_MUTATION, { id, input });
 }
 
@@ -599,6 +613,164 @@ export async function getStockStatusApi(): Promise<Drink[]> {
     size: s.size, price: s.price, cost: s.cost,
     stock: s.stock, threshold: s.threshold,
     emoji: s.imageData ?? '',
+  }));
+}
+
+// ─── Sale detail ─────────────────────────────────────────────────────────────
+
+interface ApiSaleItem {
+  id: string; drinkName: string; drinkSize: string;
+  unitPrice: number; quantity: number; subtotal: number | null;
+}
+
+interface ApiSaleDetail {
+  id: string; ticketNumber: string; tableName: string; serverName: string;
+  total: number; method: string; status: string; saleTime: string;
+  itemsCount: number; daySessionId: string | null;
+  items: ApiSaleItem[];
+}
+
+export interface SaleItemDetail {
+  id: string; drinkName: string; drinkSize: string;
+  unitPrice: number; quantity: number; subtotal: number;
+}
+
+export interface SaleDetail {
+  id: string; ticketNumber: string; table: string; server: string;
+  total: number; method: string; status: string; time: string;
+  itemsCount: number; items: SaleItemDetail[];
+}
+
+const SALE_DETAIL_QUERY = `
+  query SaleDetail($id: ID!) {
+    sale(id: $id) {
+      id ticketNumber tableName serverName total method status saleTime itemsCount daySessionId
+      items { id drinkName drinkSize unitPrice quantity subtotal }
+    }
+  }
+`;
+
+export async function getSaleDetailApi(id: string): Promise<SaleDetail> {
+  const data = await gqlClient.request<{ sale: ApiSaleDetail }>(SALE_DETAIL_QUERY, { id });
+  const s = data.sale;
+  return {
+    id: s.id,
+    ticketNumber: s.ticketNumber,
+    table: s.tableName,
+    server: s.serverName,
+    total: s.total,
+    method: METHOD_LABEL[s.method] ?? s.method,
+    status: STATUS_LABEL[s.status] ?? s.status,
+    time: s.saleTime,
+    itemsCount: s.itemsCount,
+    items: s.items.map((i) => ({
+      id: i.id,
+      drinkName: i.drinkName,
+      drinkSize: i.drinkSize,
+      unitPrice: i.unitPrice,
+      quantity: i.quantity,
+      subtotal: i.subtotal ?? i.unitPrice * i.quantity,
+    })),
+  };
+}
+
+// ─── Reports ─────────────────────────────────────────────────────────────────
+
+interface ApiReportSale {
+  id: string; ticketNumber: string; tableName: string; serverName: string;
+  serverId: string | null; total: number; method: string; status: string;
+  saleTime: string; createdAt: string; itemsCount: number;
+}
+
+interface ApiReportExpense {
+  id: string; label: string; category: string; amount: number;
+  expenseTime: string; createdAt: string; createdByName: string | null;
+}
+
+interface ApiReportSession {
+  id: string; openedAt: string; closedAt: string | null;
+  openedByName: string | null; countedAmount: number | null;
+  theoreticalAmount: number | null; ecart: number | null; notes: string | null;
+}
+
+export interface ReportSale {
+  id: string; ticketNumber: string; table: string; server: string;
+  serverId: string | null; total: number; method: string;
+  time: string; date: string;
+}
+
+export interface ReportExpense {
+  id: string; label: string; category: string; amount: number;
+  time: string; date: string; createdByName: string | null;
+}
+
+export interface ReportSession {
+  id: string; date: string; openedAt: string; closedAt: string | null;
+  openedByName: string | null; countedAmount: number | null; ecart: number | null;
+}
+
+const REPORT_SALES_QUERY = `
+  query ReportSales($from: String, $to: String, $serverId: ID, $limit: Int) {
+    sales(from: $from, to: $to, serverId: $serverId, limit: $limit) {
+      id ticketNumber tableName serverName serverId total method status saleTime createdAt itemsCount
+    }
+  }
+`;
+
+const REPORT_EXPENSES_QUERY = `
+  query ReportExpenses($from: String, $to: String, $limit: Int) {
+    expenses(from: $from, to: $to, limit: $limit) {
+      id label category amount expenseTime createdAt createdByName
+    }
+  }
+`;
+
+const REPORT_SESSIONS_QUERY = `
+  query ReportDaySessions($from: String, $to: String, $limit: Int) {
+    daySessions(from: $from, to: $to, limit: $limit) {
+      id openedAt closedAt openedByName countedAmount theoreticalAmount ecart notes
+    }
+  }
+`;
+
+export async function getReportSalesApi(params: { from?: string; to?: string; serverId?: string; limit?: number } = {}): Promise<ReportSale[]> {
+  const data = await gqlClient.request<{ sales: ApiReportSale[] }>(REPORT_SALES_QUERY, params);
+  return data.sales.map((s) => ({
+    id: s.id,
+    ticketNumber: s.ticketNumber,
+    table: s.tableName,
+    server: s.serverName,
+    serverId: s.serverId,
+    total: s.total,
+    method: METHOD_LABEL[s.method] ?? s.method,
+    time: s.saleTime,
+    date: s.createdAt.slice(0, 10),
+  }));
+}
+
+export async function getReportExpensesApi(params: { from?: string; to?: string; limit?: number } = {}): Promise<ReportExpense[]> {
+  const data = await gqlClient.request<{ expenses: ApiReportExpense[] }>(REPORT_EXPENSES_QUERY, params);
+  return data.expenses.map((e) => ({
+    id: e.id,
+    label: e.label,
+    category: e.category,
+    amount: e.amount,
+    time: e.expenseTime,
+    date: e.createdAt.slice(0, 10),
+    createdByName: e.createdByName,
+  }));
+}
+
+export async function getReportDaySessionsApi(params: { from?: string; to?: string; limit?: number } = {}): Promise<ReportSession[]> {
+  const data = await gqlClient.request<{ daySessions: ApiReportSession[] }>(REPORT_SESSIONS_QUERY, params);
+  return data.daySessions.map((s) => ({
+    id: s.id,
+    date: s.openedAt.slice(0, 10),
+    openedAt: s.openedAt,
+    closedAt: s.closedAt,
+    openedByName: s.openedByName,
+    countedAmount: s.countedAmount,
+    ecart: s.ecart,
   }));
 }
 

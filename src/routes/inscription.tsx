@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { Lock, User, Store, MapPin, ArrowRight, ImageIcon, X, Copy, Check } from "lucide-react";
+import { Lock, User, Store, MapPin, Phone, ArrowRight, ImageIcon, X, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { registerApi } from "@/lib/graphql/operations";
@@ -15,8 +15,9 @@ export const Route = createFileRoute("/inscription")({
 
 function Inscription() {
   const navigate = useNavigate();
-  const { login } = useStore();
+  const { login, loggedIn } = useStore();
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [estName, setEstName] = useState("");
   const [city, setCity] = useState("");
   const [pin, setPin] = useState("");
@@ -26,6 +27,11 @@ function Inscription() {
   const [successCode, setSuccessCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const logoRef = useRef<HTMLInputElement>(null);
+
+  // Redirige si déjà connecté, mais pas après une inscription réussie (successCode présent)
+  useEffect(() => {
+    if (loggedIn && !successCode) navigate({ to: "/" });
+  }, [loggedIn, successCode, navigate]);
 
   const handleLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,8 +52,8 @@ function Inscription() {
   };
 
   const submit = async () => {
-    if (!name.trim() || !estName.trim() || pin.length < 4) {
-      toast.error("Nom, établissement et PIN (4+ caractères) obligatoires.");
+    if (!name.trim() || !phone.trim() || !estName.trim() || pin.length < 4) {
+      toast.error("Nom, téléphone, établissement et mot de passe (4+ caractères) obligatoires.");
       return;
     }
     setLoading(true);
@@ -62,6 +68,7 @@ function Inscription() {
       }
       const payload = await registerApi({
         ownerName: name.trim(),
+        phone: phone.trim(),
         establishmentName: estName.trim(),
         city: city.trim() || undefined,
         pin,
@@ -175,7 +182,11 @@ function Inscription() {
           </div>
 
           <LabeledInput icon={User} label="Ton nom" value={name} onChange={setName} placeholder="Ex. Awa Koné" />
+          <LabeledInput icon={Phone} label="Téléphone" value={phone} onChange={setPhone} placeholder="+225 07 00 00 00" inputMode="tel" />
           <LabeledInput icon={Store} label="Nom de l'établissement" value={estName} onChange={setEstName} placeholder="Ex. Maquis Le Repère" />
+          <p className="mt-2 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+            Un code d'identification à 4 chiffres sera généré pour votre établissement — il vous sera affiché après l'inscription et servira à vous connecter.
+          </p>
           <LabeledInput icon={MapPin} label="Ville / quartier (optionnel)" value={city} onChange={setCity} placeholder="Ex. Abidjan · Cocody" />
 
           <label className="mt-3 block">
@@ -193,10 +204,6 @@ function Inscription() {
               />
             </div>
           </label>
-
-          <p className="mt-3 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-            Un code à 4 chiffres sera généré automatiquement pour identifier votre établissement.
-          </p>
 
           <button
             onClick={submit}

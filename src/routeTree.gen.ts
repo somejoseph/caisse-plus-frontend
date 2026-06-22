@@ -10,9 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as VentesRouteImport } from './routes/ventes'
+import { Route as TresorerieRouteImport } from './routes/tresorerie'
 import { Route as StockRouteImport } from './routes/stock'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ServeursRouteImport } from './routes/serveurs'
+import { Route as RapportsRouteImport } from './routes/rapports'
 import { Route as QrMenuRouteImport } from './routes/qr-menu'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as JournalRouteImport } from './routes/journal'
@@ -31,6 +33,11 @@ const VentesRoute = VentesRouteImport.update({
   path: '/ventes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TresorerieRoute = TresorerieRouteImport.update({
+  id: '/tresorerie',
+  path: '/tresorerie',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StockRoute = StockRouteImport.update({
   id: '/stock',
   path: '/stock',
@@ -44,6 +51,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const ServeursRoute = ServeursRouteImport.update({
   id: '/serveurs',
   path: '/serveurs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RapportsRoute = RapportsRouteImport.update({
+  id: '/rapports',
+  path: '/rapports',
   getParentRoute: () => rootRouteImport,
 } as any)
 const QrMenuRoute = QrMenuRouteImport.update({
@@ -120,9 +132,11 @@ export interface FileRoutesByFullPath {
   '/journal': typeof JournalRoute
   '/notifications': typeof NotificationsRoute
   '/qr-menu': typeof QrMenuRoute
+  '/rapports': typeof RapportsRoute
   '/serveurs': typeof ServeursRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
+  '/tresorerie': typeof TresorerieRoute
   '/ventes': typeof VentesRoute
 }
 export interface FileRoutesByTo {
@@ -138,9 +152,11 @@ export interface FileRoutesByTo {
   '/journal': typeof JournalRoute
   '/notifications': typeof NotificationsRoute
   '/qr-menu': typeof QrMenuRoute
+  '/rapports': typeof RapportsRoute
   '/serveurs': typeof ServeursRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
+  '/tresorerie': typeof TresorerieRoute
   '/ventes': typeof VentesRoute
 }
 export interface FileRoutesById {
@@ -157,9 +173,11 @@ export interface FileRoutesById {
   '/journal': typeof JournalRoute
   '/notifications': typeof NotificationsRoute
   '/qr-menu': typeof QrMenuRoute
+  '/rapports': typeof RapportsRoute
   '/serveurs': typeof ServeursRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/stock': typeof StockRoute
+  '/tresorerie': typeof TresorerieRoute
   '/ventes': typeof VentesRoute
 }
 export interface FileRouteTypes {
@@ -177,9 +195,11 @@ export interface FileRouteTypes {
     | '/journal'
     | '/notifications'
     | '/qr-menu'
+    | '/rapports'
     | '/serveurs'
     | '/sitemap.xml'
     | '/stock'
+    | '/tresorerie'
     | '/ventes'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -195,9 +215,11 @@ export interface FileRouteTypes {
     | '/journal'
     | '/notifications'
     | '/qr-menu'
+    | '/rapports'
     | '/serveurs'
     | '/sitemap.xml'
     | '/stock'
+    | '/tresorerie'
     | '/ventes'
   id:
     | '__root__'
@@ -213,9 +235,11 @@ export interface FileRouteTypes {
     | '/journal'
     | '/notifications'
     | '/qr-menu'
+    | '/rapports'
     | '/serveurs'
     | '/sitemap.xml'
     | '/stock'
+    | '/tresorerie'
     | '/ventes'
   fileRoutesById: FileRoutesById
 }
@@ -232,9 +256,11 @@ export interface RootRouteChildren {
   JournalRoute: typeof JournalRoute
   NotificationsRoute: typeof NotificationsRoute
   QrMenuRoute: typeof QrMenuRoute
+  RapportsRoute: typeof RapportsRoute
   ServeursRoute: typeof ServeursRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StockRoute: typeof StockRoute
+  TresorerieRoute: typeof TresorerieRoute
   VentesRoute: typeof VentesRoute
 }
 
@@ -245,6 +271,13 @@ declare module '@tanstack/react-router' {
       path: '/ventes'
       fullPath: '/ventes'
       preLoaderRoute: typeof VentesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tresorerie': {
+      id: '/tresorerie'
+      path: '/tresorerie'
+      fullPath: '/tresorerie'
+      preLoaderRoute: typeof TresorerieRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/stock': {
@@ -266,6 +299,13 @@ declare module '@tanstack/react-router' {
       path: '/serveurs'
       fullPath: '/serveurs'
       preLoaderRoute: typeof ServeursRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rapports': {
+      id: '/rapports'
+      path: '/rapports'
+      fullPath: '/rapports'
+      preLoaderRoute: typeof RapportsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/qr-menu': {
@@ -368,9 +408,11 @@ const rootRouteChildren: RootRouteChildren = {
   JournalRoute: JournalRoute,
   NotificationsRoute: NotificationsRoute,
   QrMenuRoute: QrMenuRoute,
+  RapportsRoute: RapportsRoute,
   ServeursRoute: ServeursRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StockRoute: StockRoute,
+  TresorerieRoute: TresorerieRoute,
   VentesRoute: VentesRoute,
 }
 export const routeTree = rootRouteImport

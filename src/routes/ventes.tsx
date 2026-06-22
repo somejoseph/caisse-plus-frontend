@@ -8,7 +8,7 @@ import { DrinkImage } from "@/components/DrinkImage";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, fcfa, type Drink } from "@/lib/mock-data";
 import {
-  getDrinksApi, getServersApi, getTablesApi, getCurrentDaySessionApi, recordSaleApi,
+  getDrinksApi, getServersApi, getTablesApi, getCurrentDaySessionApi, recordSaleApi, getUsersApi,
 } from "@/lib/graphql/operations";
 import { METHOD_KEY } from "@/lib/graphql/adapters";
 import type { TableItem } from "@/lib/store";
@@ -24,6 +24,7 @@ function Ventes() {
   const { data: drinks = [] } = useQuery({ queryKey: ["drinks"], queryFn: () => getDrinksApi() });
   const { data: servers = [] } = useQuery({ queryKey: ["servers"], queryFn: getServersApi });
   const { data: tables = [] } = useQuery({ queryKey: ["tables"], queryFn: getTablesApi });
+  const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: getUsersApi });
   const { data: daySession } = useQuery({ queryKey: ["daySession"], queryFn: getCurrentDaySessionApi });
   const dayOpen = !!daySession;
 
@@ -66,6 +67,12 @@ function Ventes() {
   const count = cartLines.reduce((s, l) => s + l.qty, 0);
 
   const activeServers = servers.filter((s) => s.active);
+  const activeGerants = users.filter((u) => u.active && u.role === "Gérant");
+  // Liste unifiée du personnel pouvant faire une vente
+  const allStaff = [
+    ...activeServers.map((s) => ({ id: s.id, name: s.name, isGerant: false })),
+    ...activeGerants.map((g) => ({ id: g.id, name: g.name, isGerant: true })),
+  ];
 
   return (
     <AppLayout>
@@ -149,20 +156,22 @@ function Ventes() {
           lines={cartLines}
           total={total}
           tables={tables}
-          servers={activeServers.map((s) => s.name)}
+          servers={allStaff.map((s) => s.name)}
           onClose={() => setCheckout(false)}
           onAdd={add}
           onRemove={remove}
           onConfirm={async (tableName, serverName, method) => {
             try {
-              const server = servers.find((s) => s.name === serverName);
+              const staffMember = allStaff.find((s) => s.name === serverName);
               const table = tables.find((t) => t.name === tableName);
+              // Pour les gérants, serverId est null (pas dans la table servers)
+              const serverId = staffMember?.isGerant ? undefined : staffMember?.id;
               await recordSaleMut.mutateAsync({
                 items: cartLines.map((l) => ({ drinkId: l.drink.id, quantity: l.qty })),
                 tableName,
                 serverName,
                 tableId: table?.id,
-                serverId: server?.id,
+                serverId,
                 method: METHOD_KEY[method] ?? method,
               });
               toast.success("Vente encaissée", { description: `${fcfa(total)} · ${method}` });

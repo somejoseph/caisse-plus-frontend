@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, type ElementType } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, ArrowDownLeft, ArrowUpRight, Receipt, Banknote } from "lucide-react";
+import { Plus, ArrowDownLeft, ArrowUpRight, Receipt, Banknote, Tag, Clock, User } from "lucide-react";
 import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { BottomSheet, Field, inputClass } from "@/components/BottomSheet";
@@ -15,26 +15,37 @@ export const Route = createFileRoute("/caisse")({
   component: Caisse,
 });
 
-const tabs = ["Résumé", "Opérations", "Moyens"] as const;
+const tabs = ["Résumé", "Dépenses", "Moyens"] as const;
 
 function Caisse() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Résumé");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [label, setLabel] = useState("");
   const [category, setCategory] = useState("Achats");
   const [amount, setAmount] = useState("");
 
-  const { data: sales = [] } = useQuery({ queryKey: ["sales"], queryFn: () => getSalesApi(100) });
-  const { data: expenses = [] } = useQuery({ queryKey: ["expenses"], queryFn: () => getExpensesApi(50) });
+  const today = new Date().toISOString().slice(0, 10);
   const { data: daySession } = useQuery({ queryKey: ["daySession"], queryFn: getCurrentDaySessionApi });
   const dayOpen = !!daySession;
+
+  const { data: sales = [] } = useQuery({
+    queryKey: ["sales", today],
+    queryFn: () => getSalesApi(500, today, today),
+  });
+  const { data: expenses = [] } = useQuery({
+    queryKey: ["expenses", daySession?.id],
+    queryFn: () => getExpensesApi(200, daySession?.id),
+    enabled: daySession !== undefined,
+  });
 
   const addExpenseMut = useMutation({
     mutationFn: addExpenseApi,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["expenses"] }),
   });
 
+  const totalCA = sales.reduce((a, s) => a + s.total, 0);
   const entrees = sales.filter((s: SaleEntry) => s.method !== "Crédit").reduce((a, s) => a + s.total, 0);
   const sorties = expenses.reduce((a: number, e: Expense) => a + e.amount, 0);
   const solde = entrees - sorties;
@@ -76,7 +87,7 @@ function Caisse() {
         )}
 
         <div className="rounded-3xl bg-brand-gradient p-5 text-primary-foreground shadow-elevated">
-          <p className="text-sm text-primary-foreground/80">Solde de caisse théorique</p>
+          <p className="text-sm text-primary-foreground/80">Solde net de la caisse (ventes - dépenses)</p>
           <p className="mt-1 font-display text-4xl font-extrabold tabular-nums">{fcfa(solde)}</p>
           <div className="mt-4 grid grid-cols-2 gap-3 border-t border-white/15 pt-4">
             <div className="flex items-center gap-2">
@@ -84,7 +95,7 @@ function Caisse() {
                 <ArrowDownLeft className="h-4 w-4" />
               </span>
               <div>
-                <p className="text-[11px] text-primary-foreground/70">Entrées</p>
+                <p className="text-[11px] text-primary-foreground/70">solde ventes</p>
                 <p className="font-bold tabular-nums">{fcfa(entrees)}</p>
               </div>
             </div>
@@ -93,7 +104,7 @@ function Caisse() {
                 <ArrowUpRight className="h-4 w-4" />
               </span>
               <div>
-                <p className="text-[11px] text-primary-foreground/70">Sorties</p>
+                <p className="text-[11px] text-primary-foreground/70">solde dépenses</p>
                 <p className="font-bold tabular-nums">{fcfa(sorties)}</p>
               </div>
             </div>
@@ -114,19 +125,37 @@ function Caisse() {
 
         {tab === "Résumé" && (
           <section className="space-y-3">
+            {/* Stats rapides */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-2xl border border-border bg-card p-3 shadow-card text-center">
+                <p className="font-display text-xl font-extrabold tabular-nums text-foreground">{sales.length}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Ventes</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-card p-3 shadow-card text-center">
+                <p className="font-display text-xl font-extrabold tabular-nums text-foreground">{expenses.length}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Dépenses</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-card p-3 shadow-card text-center">
+                <p className="font-display text-lg font-extrabold tabular-nums text-foreground">
+                  {fcfa(sales.length ? Math.round(totalCA / sales.length) : 0)}
+                </p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Panier moy.</p>
+              </div>
+            </div>
+
             <div className="rounded-2xl border border-success/30 bg-success/10 p-4">
               <p className="text-sm font-semibold text-foreground">Réconciliation</p>
               <div className="mt-2 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Solde théorique</span>
-                <span className="font-bold tabular-nums">{fcfa(solde)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Ventes cash</span>
-                <span className="font-bold tabular-nums">{fcfa(entrees)}</span>
+                <span className="font-bold tabular-nums text-success">+ {fcfa(entrees)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Dépenses</span>
                 <span className="font-bold tabular-nums text-destructive">- {fcfa(sorties)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between border-t border-success/20 pt-2 text-sm">
+                <span className="font-semibold text-foreground">Solde net</span>
+                <span className={cn("font-bold tabular-nums", solde >= 0 ? "text-success" : "text-destructive")}>{fcfa(solde)}</span>
               </div>
             </div>
             <PayBreakdown sales={sales} />
@@ -135,7 +164,7 @@ function Caisse() {
 
         {tab === "Moyens" && <PayBreakdown sales={sales} />}
 
-        {tab === "Opérations" && (
+        {tab === "Dépenses" && (
           <section>
             <div className="flex items-center justify-between">
               <SectionTitle title="Dépenses du jour" noMargin />
@@ -148,18 +177,22 @@ function Caisse() {
             </div>
             <div className="mt-3 space-y-2">
               {expenses.map((e: Expense) => (
-                <div key={e.id} className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
+                <button
+                  key={e.id}
+                  onClick={() => setSelectedExpense(e)}
+                  className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card text-left active:scale-[0.99]"
+                >
                   <div className="flex items-center gap-3">
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 text-accent">
                       <Receipt className="h-4.5 w-4.5" />
                     </span>
                     <div>
                       <p className="text-sm font-semibold text-foreground">{e.label}</p>
-                      <p className="text-xs text-muted-foreground">{e.category} · {e.time}</p>
+                      <p className="text-xs text-muted-foreground">{e.category} · {e.time}{e.createdByName ? ` · ${e.createdByName}` : ""}</p>
                     </div>
                   </div>
                   <p className="text-sm font-bold tabular-nums text-destructive">- {fcfa(e.amount)}</p>
-                </div>
+                </button>
               ))}
               {expenses.length === 0 && (
                 <p className="py-6 text-center text-sm text-muted-foreground">Aucune dépense enregistrée.</p>
@@ -168,6 +201,36 @@ function Caisse() {
           </section>
         )}
       </div>
+
+      <BottomSheet
+        open={!!selectedExpense}
+        onClose={() => setSelectedExpense(null)}
+        title="Détail de la dépense"
+        subtitle={selectedExpense?.label}
+      >
+        {selectedExpense && (
+          <div className="space-y-3">
+            <div className="rounded-2xl bg-destructive/10 border border-destructive/20 p-4 text-center">
+              <p className="text-xs text-muted-foreground">Montant</p>
+              <p className="font-display text-4xl font-extrabold tabular-nums text-destructive">- {fcfa(selectedExpense.amount)}</p>
+            </div>
+            <div className="space-y-2 rounded-2xl border border-border bg-card p-4 shadow-card">
+              <DetailRow icon={Receipt} label="Libellé" value={selectedExpense.label} />
+              <DetailRow icon={Tag} label="Catégorie" value={selectedExpense.category} />
+              <DetailRow icon={Clock} label="Heure" value={selectedExpense.time} />
+              {selectedExpense.createdByName && (
+                <DetailRow icon={User} label="Dépensé par" value={selectedExpense.createdByName} />
+              )}
+            </div>
+            <button
+              onClick={() => setSelectedExpense(null)}
+              className="w-full rounded-2xl bg-muted py-3.5 text-sm font-bold text-foreground active:scale-[0.99]"
+            >
+              Fermer
+            </button>
+          </div>
+        )}
+      </BottomSheet>
 
       <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Enregistrer une dépense" subtitle="Sortie de caisse du jour">
         <div className="space-y-3">
@@ -196,6 +259,17 @@ function Caisse() {
         </div>
       </BottomSheet>
     </AppLayout>
+  );
+}
+
+function DetailRow({ icon: Icon, label, value }: { icon: ElementType; label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="flex items-center gap-2 text-muted-foreground">
+        <Icon className="h-4 w-4" /> {label}
+      </span>
+      <span className="font-semibold text-foreground">{value}</span>
+    </div>
   );
 }
 

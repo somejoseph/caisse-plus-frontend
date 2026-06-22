@@ -9,7 +9,8 @@ import { cn } from "@/lib/utils";
 import { fcfa, type ServerRole } from "@/lib/mock-data";
 import {
   getServersApi, getTablesApi, getUsersApi, createServerApi, updateServerApi,
-  createTableApi, updateTableStatusApi, createGerantApi, deactivateUserApi, updateUserApi,
+  createTableApi, updateTableStatusApi, createGerantApi, updateUserApi,
+  deactivateUserApi, reactivateUserApi,
   type GerantUser,
 } from "@/lib/graphql/operations";
 import { SERVER_ROLE_KEY } from "@/lib/graphql/adapters";
@@ -78,19 +79,36 @@ function Serveurs() {
     mutationFn: createGerantApi,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["users"] }),
   });
-  const toggleGerantMut = useMutation({
-    mutationFn: ({ id, active }: { id: string; active: boolean }) => updateUserApi(id, { active }),
+  const deactivateGerantMut = useMutation({
+    mutationFn: deactivateUserApi,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["users"] }),
+  });
+  const reactivateGerantMut = useMutation({
+    mutationFn: reactivateUserApi,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["users"] }),
   });
   const removeGerantMut = useMutation({
     mutationFn: deactivateUserApi,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["users"] }),
   });
+  const updateGerantMut = useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Parameters<typeof updateUserApi>[1] }) =>
+      updateUserApi(id, input),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["users"] }),
+  });
 
-  // Gérant form
+  // Gérant create form
   const [gerantOpen, setGerantOpen] = useState(false);
   const [gName, setGName] = useState("");
+  const [gPhone, setGPhone] = useState("");
   const [gPin, setGPin] = useState("");
+
+  // Gérant edit form
+  const [editGerantOpen, setEditGerantOpen] = useState(false);
+  const [editingGerant, setEditingGerant] = useState<GerantUser | null>(null);
+  const [egName, setEgName] = useState("");
+  const [egPhone, setEgPhone] = useState("");
+  const [egPin, setEgPin] = useState("");
 
   // Server form
   const [serverOpen, setServerOpen] = useState(false);
@@ -138,12 +156,36 @@ function Serveurs() {
   };
 
   const submitGerant = async () => {
-    if (!gName.trim() || gPin.length < 4) { toast.error("Nom et code PIN à 4 chiffres sont obligatoires."); return; }
+    if (!gName.trim() || !gPhone.trim() || gPin.length < 4) { toast.error("Nom, téléphone et mot de passe (4 chiffres min.) obligatoires."); return; }
     try {
-      await createGerantMut.mutateAsync({ name: gName.trim(), pin: gPin });
+      await createGerantMut.mutateAsync({ name: gName.trim(), phone: gPhone.trim(), pin: gPin });
       toast.success(`Accès créé pour ${gName.trim()}`);
-      setGName(""); setGPin(""); setGerantOpen(false);
+      setGName(""); setGPhone(""); setGPin(""); setGerantOpen(false);
     } catch { toast.error("Impossible de créer l'accès gérant."); }
+  };
+
+  const openEditGerant = (g: GerantUser) => {
+    setEditingGerant(g);
+    setEgName(g.name);
+    setEgPhone(g.phone ?? "");
+    setEgPin("");
+    setEditGerantOpen(true);
+  };
+
+  const submitEditGerant = async () => {
+    if (!editingGerant) return;
+    if (!egName.trim() || !egPhone.trim()) { toast.error("Nom et téléphone obligatoires."); return; }
+    if (egPin && egPin.length < 4) { toast.error("Le nouveau mot de passe doit contenir au moins 4 chiffres."); return; }
+    try {
+      const input: Parameters<typeof updateUserApi>[1] = {
+        name: egName.trim(),
+        phone: egPhone.trim(),
+        ...(egPin ? { pin: egPin } : {}),
+      };
+      await updateGerantMut.mutateAsync({ id: editingGerant.id, input });
+      toast.success(`${egName.trim()} mis à jour`);
+      setEditGerantOpen(false);
+    } catch { toast.error("Impossible de modifier le gérant."); }
   };
 
   const cycleTable = (id: string, current: TableStatus) => {
@@ -212,10 +254,10 @@ function Serveurs() {
           <>
             <div className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
               <ShieldCheck className="mb-1 h-4 w-4 text-primary" />
-              Les gérants se connectent avec le code établissement <span className="font-bold text-foreground">et leur PIN</span>. Ils n'ont pas accès aux marges ni aux rapports financiers complets.
+              Les gérants se connectent avec le code établissement <span className="font-bold text-foreground">et leur mot de passe</span>. Ils n'ont pas accès aux marges ni aux rapports financiers complets.
             </div>
             <button
-              onClick={() => { setGName(""); setGPin(""); setGerantOpen(true); }}
+              onClick={() => { setGName(""); setGPhone(""); setGPin(""); setGerantOpen(true); }}
               className="flex w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-border bg-card py-3 text-sm font-bold text-primary"
             >
               <Plus className="h-4 w-4" /> Ajouter un gérant
@@ -234,7 +276,7 @@ function Serveurs() {
                       <div>
                         <p className="text-sm font-bold text-foreground">{g.name}</p>
                         <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Lock className="h-3 w-3" /> PIN configuré
+                          <Phone className="h-3 w-3" /> {g.phone || "—"}
                         </p>
                       </div>
                     </div>
@@ -244,7 +286,18 @@ function Serveurs() {
                   </div>
                   <div className="mt-2 flex gap-2">
                     <button
-                      onClick={() => void toggleGerantMut.mutateAsync({ id: g.id, active: !g.active })}
+                      onClick={() => openEditGerant(g)}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-muted py-2 text-xs font-bold text-foreground active:scale-[0.98]"
+                    >
+                      <Pencil className="h-3.5 w-3.5" /> Modifier
+                    </button>
+                    <button
+                      onClick={() => {
+                        const mut = g.active ? deactivateGerantMut : reactivateGerantMut;
+                        void mut.mutateAsync(g.id).then(() =>
+                          toast.success(`${g.name} ${g.active ? "désactivé" : "activé"}`)
+                        );
+                      }}
                       className={cn("flex-1 rounded-xl py-2 text-xs font-bold transition-colors active:scale-[0.98]", g.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground")}
                     >
                       {g.active ? "Désactiver" : "Activer"}
@@ -380,17 +433,51 @@ function Serveurs() {
         </div>
       </BottomSheet>
 
-      <BottomSheet open={gerantOpen} onClose={() => setGerantOpen(false)} title="Nouveau gérant" subtitle="Crée un accès gérant avec un code PIN unique">
+      <BottomSheet open={editGerantOpen} onClose={() => setEditGerantOpen(false)} title="Modifier le gérant" subtitle={`Modifier les informations de ${editingGerant?.name ?? ""}`}>
+        <div className="space-y-3">
+          <Field label="Nom complet">
+            <input value={egName} onChange={(e) => setEgName(e.target.value)} className={inputClass} placeholder="Ex. Kouamé Yao" />
+          </Field>
+          <Field label="Téléphone">
+            <input value={egPhone} onChange={(e) => setEgPhone(e.target.value)} inputMode="tel" className={inputClass} placeholder="+225 07 00 00 00" />
+          </Field>
+          <Field label="Nouveau mot de passe (laisser vide pour ne pas changer)">
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3">
+              <Lock className="h-4 w-4 text-muted-foreground" />
+              <input
+                value={egPin}
+                onChange={(e) => setEgPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                inputMode="numeric"
+                type="password"
+                placeholder="Laisser vide pour ne pas modifier"
+                className="w-full bg-transparent py-2.5 text-sm tracking-[0.4em] outline-none"
+              />
+            </div>
+          </Field>
+          <button
+            onClick={submitEditGerant}
+            disabled={updateGerantMut.isPending}
+            className="mt-2 w-full rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99] disabled:opacity-60"
+          >
+            Enregistrer les modifications
+          </button>
+        </div>
+      </BottomSheet>
+
+      <BottomSheet open={gerantOpen} onClose={() => setGerantOpen(false)} title="Nouveau gérant" subtitle="Crée un accès gérant avec un mot de passe">
         <div className="space-y-3">
           <Field label="Nom complet">
             <input value={gName} onChange={(e) => setGName(e.target.value)} className={inputClass} placeholder="Ex. Kouamé Yao" />
           </Field>
-          <Field label="Code PIN (4 chiffres)">
+          <Field label="Téléphone">
+            <input value={gPhone} onChange={(e) => setGPhone(e.target.value)} inputMode="tel" className={inputClass} placeholder="+225 07 00 00 00" />
+          </Field>
+          <Field label="Mot de passe (4 à 8 chiffres)">
             <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3">
               <Lock className="h-4 w-4 text-muted-foreground" />
               <input
                 value={gPin}
-                onChange={(e) => setGPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                onChange={(e) => setGPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
                 inputMode="numeric"
                 type="password"
                 placeholder="••••"
@@ -399,7 +486,7 @@ function Serveurs() {
             </div>
           </Field>
           <p className="text-[11px] text-muted-foreground">
-            Ce gérant se connectera avec le code établissement et ce PIN. Il aura accès aux ventes, stock et opérations — pas aux marges ni aux rapports financiers.
+            Ce gérant se connectera avec le code établissement et ce mot de passe. Il aura accès aux ventes, stock et opérations — pas aux marges ni aux rapports financiers.
           </p>
           <button
             onClick={submitGerant}

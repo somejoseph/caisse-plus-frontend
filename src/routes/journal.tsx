@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { DrinkImage } from "@/components/DrinkImage";
 import { BottomSheet, Field } from "@/components/BottomSheet";
+import { SaleDetailSheet } from "@/components/SaleDetailSheet";
 import { cn } from "@/lib/utils";
 import { fcfa, WEEK_SALES } from "@/lib/mock-data";
 import { useStore } from "@/lib/store";
@@ -28,6 +29,7 @@ function Journal() {
   const { data: sales = [] } = useQuery({ queryKey: ["sales"], queryFn: () => getSalesApi(200) });
   const { data: drinks = [] } = useQuery({ queryKey: ["drinks"], queryFn: () => getDrinksApi() });
 
+  const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [expPeriod, setExpPeriod] = useState<(typeof periods)[number]>("Jour");
   const [expType, setExpType] = useState<(typeof dataTypes)[number]>("Synthèse");
@@ -54,7 +56,7 @@ function Journal() {
           { header: "Mode", key: "method", width: 1.3 },
           { header: "Montant", key: "total", align: "right", width: 1.1 },
         ],
-        rows: sales.map((s) => ({ id: s.id, table: s.table, server: s.server, time: s.time, method: s.method, total: fcfa(s.total) })),
+        rows: sales.map((s) => ({ id: s.ticketNumber ?? s.id, table: s.table, server: s.server, time: s.time, method: s.method, total: fcfa(s.total) })),
       });
     }
     if (type === "Boissons rentables" || type === "Tout") {
@@ -221,16 +223,20 @@ function Journal() {
           </div>
           <div className="space-y-2">
             {sales.map((s) => (
-              <div key={s.id} className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card">
+              <button
+                key={s.id}
+                onClick={() => setSelectedSaleId(s.id)}
+                className="flex w-full items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 shadow-card active:scale-[0.99] text-left"
+              >
                 <div>
-                  <p className="text-sm font-semibold text-foreground">{s.id} · {s.table}</p>
+                  <p className="text-sm font-semibold text-foreground">{s.ticketNumber ?? s.id} · {s.table}</p>
                   <p className="text-xs text-muted-foreground">{s.time} · {s.server} · {s.items} articles</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-bold tabular-nums text-foreground">{fcfa(s.total)}</p>
                   <MethodBadge method={s.method} />
                 </div>
-              </div>
+              </button>
             ))}
             {sales.length === 0 && (
               <p className="py-6 text-center text-sm text-muted-foreground">Aucune vente enregistrée.</p>
@@ -238,6 +244,8 @@ function Journal() {
           </div>
         </section>
       </div>
+
+      <SaleDetailSheet saleId={selectedSaleId} onClose={() => setSelectedSaleId(null)} />
 
       <BottomSheet open={exportOpen} onClose={() => setExportOpen(false)} title="Exporter en PDF" subtitle="Choisis la période et le type de données">
         <div className="space-y-4">
@@ -295,3 +303,4 @@ function Journal() {
     </AppLayout>
   );
 }
+

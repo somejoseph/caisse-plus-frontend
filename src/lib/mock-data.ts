@@ -51,6 +51,7 @@ export const CATEGORIES: Category[] = ["Bières", "Spiritueux", "Vins", "Softs",
 
 export interface SaleEntry {
   id: string;
+  ticketNumber?: string;
   table: string;
   server: string;
   total: number;
@@ -74,6 +75,7 @@ export interface Expense {
   category: string;
   amount: number;
   time: string;
+  createdByName?: string | null;
 }
 
 export const EXPENSES: Expense[] = [
