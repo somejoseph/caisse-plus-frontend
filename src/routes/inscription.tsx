@@ -143,7 +143,7 @@ function Inscription() {
             </button>
           </div>
         </div>
-        <p className="pt-6 text-center text-xs text-primary-foreground/70">Caisse+ v2.1 · Caisse+ v2.1 · JS-DEV · tout droits reservés</p>
+        <p className="pt-6 text-center text-xs text-primary-foreground/70">Caisse+ v2.1 · JS-DEV · tout droits reservés</p>
       </div>
     );
   }
@@ -309,7 +309,7 @@ function Inscription() {
           </p>
         </div>
       </div>
-      <p className="pt-6 text-center text-xs text-primary-foreground/70">Caisse+ v2.1 · Caisse+ v2.1 · JS-DEV · tout droits reservés</p>
+      <p className="pt-6 text-center text-xs text-primary-foreground/70">Caisse+ v2.1 · JS-DEV · tout droits reservés</p>
     </div>
   );
 }
