@@ -103,7 +103,7 @@ function Connexion() {
           </p>
         </div>
       </div>
-      <p className="pb-6 text-center text-xs text-primary-foreground/70">Caisse+ v2.1 · Sohapigroup</p>
+      <p className="pb-6 text-center text-xs text-primary-foreground/70">Caisse+ v2.1 · Caisse+ v2.1 · JS-DEV · tout droits reservés</p>
     </div>
   );
 }

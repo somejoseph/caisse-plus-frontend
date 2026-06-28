@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { Lock, User, Store, MapPin, Phone, ArrowRight, ImageIcon, X, Copy, Check } from "lucide-react";
+import { Lock, User, Store, MapPin, Phone, ArrowRight, ArrowLeft, ImageIcon, X, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "@/lib/store";
 import { registerApi } from "@/lib/graphql/operations";
@@ -13,9 +13,13 @@ export const Route = createFileRoute("/inscription")({
   component: Inscription,
 });
 
+const TOTAL_STEPS = 2;
+
 function Inscription() {
   const navigate = useNavigate();
   const { login, loggedIn } = useStore();
+
+  // Form fields
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [estName, setEstName] = useState("");
@@ -23,12 +27,14 @@ function Inscription() {
   const [pin, setPin] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState("");
+
+  // UI state
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [successCode, setSuccessCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const logoRef = useRef<HTMLInputElement>(null);
 
-  // Redirige si déjà connecté, mais pas après une inscription réussie (successCode présent)
   useEffect(() => {
     if (loggedIn && !successCode) navigate({ to: "/" });
   }, [loggedIn, successCode, navigate]);
@@ -51,9 +57,17 @@ function Inscription() {
     }
   };
 
+  const goNext = () => {
+    if (!name.trim() || !phone.trim() || pin.length < 4) {
+      toast.error("Nom, téléphone et mot de passe (4+ caractères) sont obligatoires.");
+      return;
+    }
+    setStep(2);
+  };
+
   const submit = async () => {
-    if (!name.trim() || !phone.trim() || !estName.trim() || pin.length < 4) {
-      toast.error("Nom, téléphone, établissement et mot de passe (4+ caractères) obligatoires.");
+    if (!estName.trim()) {
+      toast.error("Le nom de l'établissement est obligatoire.");
       return;
     }
     setLoading(true);
@@ -129,12 +143,12 @@ function Inscription() {
             </button>
           </div>
         </div>
-        <p className="pt-6 text-center text-xs text-primary-foreground/70">Caisse+ v2.1 · Sohapigroup</p>
+        <p className="pt-6 text-center text-xs text-primary-foreground/70">Caisse+ v2.1 · Caisse+ v2.1 · JS-DEV · tout droits reservés</p>
       </div>
     );
   }
 
-  // ── Formulaire d'inscription ─────────────────────────────────────────────────
+  // ── Formulaire multi-étapes ──────────────────────────────────────────────────
   return (
     <div className="flex min-h-screen flex-col bg-brand-gradient px-6 py-8 text-primary-foreground">
       <div className="flex flex-1 flex-col justify-center">
@@ -145,73 +159,147 @@ function Inscription() {
         </div>
 
         <div className="rounded-3xl bg-card p-6 text-foreground shadow-float">
-          <h1 className="text-lg font-bold">Inscription</h1>
-          <p className="text-xs text-muted-foreground">Quelques infos pour démarrer</p>
-
-          {/* Logo optionnel */}
-          <div className="mt-4">
-            <span className="mb-2 block text-xs font-semibold text-muted-foreground">
-              Logo de l'établissement (optionnel)
-            </span>
-            <div className="flex items-center gap-3">
-              <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border bg-muted/50">
-                {logoPreview ? (
-                  <>
-                    <img src={logoPreview} alt="Logo" className="h-full w-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => { setLogoFile(null); setLogoPreview(""); }}
-                      className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </>
-                ) : (
-                  <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => logoRef.current?.click()}
-                className="flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground shadow-card active:scale-95"
-              >
-                <ImageIcon className="h-3.5 w-3.5" /> Choisir un logo
-              </button>
+          {/* Titre + progression */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-1.5">
+              <h1 className="text-lg font-bold">
+                {step === 1 ? "Ton profil" : "Ton établissement"}
+              </h1>
+              <span className="text-xs font-semibold text-muted-foreground">
+                {step} / {TOTAL_STEPS}
+              </span>
             </div>
-            <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoFile} />
-          </div>
-
-          <LabeledInput icon={User} label="Ton nom" value={name} onChange={setName} placeholder="Ex. Awa Koné" />
-          <LabeledInput icon={Phone} label="Téléphone" value={phone} onChange={setPhone} placeholder="+225 07 00 00 00" inputMode="tel" />
-          <LabeledInput icon={Store} label="Nom de l'établissement" value={estName} onChange={setEstName} placeholder="Ex. Maquis Le Repère" />
-          <p className="mt-2 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-            Un code d'identification à 4 chiffres sera généré pour votre établissement — il vous sera affiché après l'inscription et servira à vous connecter.
-          </p>
-          <LabeledInput icon={MapPin} label="Ville / quartier (optionnel)" value={city} onChange={setCity} placeholder="Ex. Abidjan · Cocody" />
-
-          <label className="mt-3 block">
-            <span className="mb-1 block text-xs font-semibold text-muted-foreground">
-              Mot de passe (4–20 caractères)
-            </span>
-            <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3">
-              <Lock className="h-4 w-4 text-muted-foreground" />
-              <input
-                value={pin}
-                onChange={(e) => setPin(e.target.value.slice(0, 20))}
-                type="password"
-                placeholder="••••"
-                className="w-full bg-transparent py-2.5 text-sm tracking-[0.4em] outline-none"
+            {/* Barre de progression */}
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-300 ease-out"
+                style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
               />
             </div>
-          </label>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {step === 1
+                ? "Tes informations personnelles et ton mot de passe"
+                : "Les infos de ton commerce"}
+            </p>
+          </div>
 
-          <button
-            onClick={submit}
-            disabled={loading}
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99] disabled:opacity-60"
-          >
-            {loading ? "Création…" : <>Créer mon compte <ArrowRight className="h-5 w-5" /></>}
-          </button>
+          {/* ── Étape 1 : profil + credentials ── */}
+          {step === 1 && (
+            <>
+              <LabeledInput
+                icon={User}
+                label="Ton nom"
+                value={name}
+                onChange={setName}
+                placeholder="Ex. Awa Koné"
+              />
+              <LabeledInput
+                icon={Phone}
+                label="Téléphone"
+                value={phone}
+                onChange={setPhone}
+                placeholder="+225 07 00 00 00"
+                inputMode="tel"
+              />
+              <label className="mt-3 block">
+                <span className="mb-1 block text-xs font-semibold text-muted-foreground">
+                  Mot de passe (4–20 caractères)
+                </span>
+                <div className="flex items-center gap-2 rounded-xl border border-border bg-background px-3">
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  <input
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.slice(0, 20))}
+                    type="password"
+                    placeholder="••••"
+                    className="w-full bg-transparent py-2.5 text-sm tracking-[0.4em] outline-none"
+                  />
+                </div>
+              </label>
+
+              <button
+                type="button"
+                onClick={goNext}
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99]"
+              >
+                Suivant <ArrowRight className="h-5 w-5" />
+              </button>
+            </>
+          )}
+
+          {/* ── Étape 2 : établissement ── */}
+          {step === 2 && (
+            <>
+              {/* Logo optionnel */}
+              <div className="mb-1">
+                <span className="mb-2 block text-xs font-semibold text-muted-foreground">
+                  Logo de l'établissement (optionnel)
+                </span>
+                <div className="flex items-center gap-3">
+                  <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border bg-muted/50">
+                    {logoPreview ? (
+                      <>
+                        <img src={logoPreview} alt="Logo" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => { setLogoFile(null); setLogoPreview(""); }}
+                          className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-white shadow"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => logoRef.current?.click()}
+                    className="flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground shadow-card active:scale-95"
+                  >
+                    <ImageIcon className="h-3.5 w-3.5" /> Choisir un logo
+                  </button>
+                </div>
+                <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={handleLogoFile} />
+              </div>
+
+              <LabeledInput
+                icon={Store}
+                label="Nom de l'établissement"
+                value={estName}
+                onChange={setEstName}
+                placeholder="Ex. Maquis Le Repère"
+              />
+              <p className="mt-2 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+                Un code à 4 chiffres sera généré pour votre établissement — il servira à vous connecter.
+              </p>
+              <LabeledInput
+                icon={MapPin}
+                label="Ville / quartier (optionnel)"
+                value={city}
+                onChange={setCity}
+                placeholder="Ex. Abidjan · Cocody"
+              />
+
+              <div className="mt-5 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  className="flex items-center justify-center gap-1.5 rounded-2xl border border-border bg-background px-4 py-3.5 text-sm font-semibold text-foreground shadow-card active:scale-95"
+                >
+                  <ArrowLeft className="h-4 w-4" /> Retour
+                </button>
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={loading}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-base font-bold text-primary-foreground shadow-elevated active:scale-[0.99] disabled:opacity-60"
+                >
+                  {loading ? "Création…" : <>Créer mon compte <ArrowRight className="h-5 w-5" /></>}
+                </button>
+              </div>
+            </>
+          )}
 
           <p className="mt-4 text-center text-xs text-muted-foreground">
             Déjà un compte ?{" "}
@@ -221,7 +309,7 @@ function Inscription() {
           </p>
         </div>
       </div>
-      <p className="pt-6 text-center text-xs text-primary-foreground/70">Caisse+ v2.1 · Sohapigroup</p>
+      <p className="pt-6 text-center text-xs text-primary-foreground/70">Caisse+ v2.1 · Caisse+ v2.1 · JS-DEV · tout droits reservés</p>
     </div>
   );
 }

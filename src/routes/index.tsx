@@ -123,13 +123,13 @@ function Home() {
         )}
 
         {!isOwner && (
-          <div className="overflow-hidden rounded-3xl bg-brand-gradient p-5 text-primary-foreground shadow-elevated">
-            <p className="text-sm font-medium text-primary-foreground/80">Chiffre d'affaires du jour</p>
-            <p className="mt-1 font-display text-4xl font-extrabold tabular-nums">{fcfa(totalCA)}</p>
-            <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold">
-              <TrendingUp className="h-3.5 w-3.5" /> Aujourd'hui
+          <div className="overflow-hidden rounded-2xl bg-brand-gradient px-4 py-3 text-primary-foreground shadow-elevated">
+            <p className="text-xs font-medium text-primary-foreground/80">Chiffre d'affaires du jour</p>
+            <p className="mt-0.5 font-display text-2xl font-extrabold tabular-nums">{fcfa(totalCA)}</p>
+            <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold">
+              <TrendingUp className="h-2.5 w-2.5" /> Aujourd'hui
             </div>
-            <div className="mt-5 grid grid-cols-3 gap-2 border-t border-white/15 pt-4">
+            <div className="mt-2.5 grid grid-cols-3 gap-2 border-t border-white/15 pt-2.5">
               <MiniStat label="Ventes" value={String(activeSales.length)} />
               <MiniStat label="Panier moy." value={fcfa(activeSales.length ? totalCA / activeSales.length : 0)} />
               <MiniStat label="Crédit" value={fcfa(creditCA)} />
