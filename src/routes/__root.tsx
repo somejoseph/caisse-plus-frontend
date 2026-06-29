@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppStoreProvider } from "../lib/store";
 import { Toaster } from "../components/ui/sonner";
+import { OfflineBanner } from "../components/OfflineBanner";
 
 function NotFoundComponent() {
   return (
@@ -78,7 +79,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AppStoreProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <OfflineBanner />
         <Outlet />
         <Toaster position="top-center" richColors />
       </AppStoreProvider>
