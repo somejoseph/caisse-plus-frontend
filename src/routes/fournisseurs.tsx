@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { AppLayout } from "@/components/AppLayout";
 import { BottomSheet, Field, inputClass } from "@/components/BottomSheet";
 import { getSuppliersApi, createSupplierApi, updateSupplierApi, deleteSupplierApi } from "@/lib/graphql/operations";
-import { useStore } from "@/lib/store";
 import type { Supplier } from "@/lib/mock-data";
 
 export const Route = createFileRoute("/fournisseurs")({
@@ -15,8 +14,6 @@ export const Route = createFileRoute("/fournisseurs")({
 
 function Fournisseurs() {
   const qc = useQueryClient();
-  const { currentRole } = useStore();
-  const isOwner = currentRole === "Propriétaire";
 
   const { data: suppliers = [] } = useQuery({ queryKey: ["suppliers"], queryFn: getSuppliersApi });
 
@@ -113,14 +110,12 @@ function Fournisseurs() {
             <h1 className="text-lg font-bold text-foreground">Fournisseurs</h1>
             <p className="text-xs text-muted-foreground">{suppliers.length} fournisseur(s) enregistré(s)</p>
           </div>
-          {isOwner && (
-            <button
-              onClick={() => setOpen(true)}
-              className="flex items-center gap-1 rounded-full bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
-            >
-              <Plus className="h-4 w-4" /> Ajouter
-            </button>
-          )}
+          <button
+            onClick={() => setOpen(true)}
+            className="flex items-center gap-1 rounded-full bg-primary px-3 py-2 text-xs font-bold text-primary-foreground"
+          >
+            <Plus className="h-4 w-4" /> Ajouter
+          </button>
         </div>
 
         <Link
@@ -134,14 +129,12 @@ function Fournisseurs() {
           </div>
         </Link>
 
-        {isOwner && (
-          <button
-            onClick={() => setOpen(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-border bg-card py-3 text-sm font-bold text-primary"
-          >
-            <Plus className="h-4 w-4" /> Nouveau fournisseur
-          </button>
-        )}
+        <button
+          onClick={() => setOpen(true)}
+          className="flex w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-border bg-card py-3 text-sm font-bold text-primary"
+        >
+          <Plus className="h-4 w-4" /> Nouveau fournisseur
+        </button>
 
         <div className="space-y-2">
           {suppliers.map((s) => (
@@ -157,23 +150,21 @@ function Fournisseurs() {
                 {s.phone && <p className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-primary" /> {s.phone}</p>}
                 {s.note && <p className="flex items-center gap-2"><StickyNote className="h-3.5 w-3.5 text-primary" /> {s.note}</p>}
               </div>
-              {isOwner && (
-                <div className="mt-2 flex gap-2 border-t border-border pt-2">
-                  <button
-                    onClick={() => openEdit(s)}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-muted py-2 text-xs font-bold text-foreground active:scale-[0.98]"
-                  >
-                    <Pencil className="h-3.5 w-3.5" /> Modifier
-                  </button>
-                  <button
-                    onClick={() => void handleDelete(s)}
-                    disabled={deleteMut.isPending}
-                    className="flex items-center justify-center gap-1 rounded-xl bg-destructive/10 px-4 py-2 text-xs font-bold text-destructive active:scale-[0.98] disabled:opacity-50"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> Supprimer
-                  </button>
-                </div>
-              )}
+              <div className="mt-2 flex gap-2 border-t border-border pt-2">
+                <button
+                  onClick={() => openEdit(s)}
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-muted py-2 text-xs font-bold text-foreground active:scale-[0.98]"
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Modifier
+                </button>
+                <button
+                  onClick={() => void handleDelete(s)}
+                  disabled={deleteMut.isPending}
+                  className="flex items-center justify-center gap-1 rounded-xl bg-destructive/10 px-4 py-2 text-xs font-bold text-destructive active:scale-[0.98] disabled:opacity-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Supprimer
+                </button>
+              </div>
             </div>
           ))}
           {suppliers.length === 0 && (

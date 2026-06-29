@@ -246,21 +246,19 @@ function Serveurs() {
                     <p className="text-xs text-muted-foreground">{t.seats} places</p>
                     <span className="mt-1 text-[11px] font-bold">{t.status}</span>
                   </button>
-                  {isOwner && (
-                    <button
-                      onClick={() => {
-                        if (!confirm(`Supprimer "${t.name}" ?`)) return;
-                        void deleteTableMut.mutateAsync(t.id).then(() =>
-                          toast.success(`${t.name} supprimée`)
-                        ).catch(() => toast.error("Impossible de supprimer cette table."));
-                      }}
-                      disabled={deleteTableMut.isPending}
-                      className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-destructive/80 text-white shadow-sm active:scale-95 disabled:opacity-50"
-                      aria-label="Supprimer la table"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      if (!confirm(`Supprimer "${t.name}" ?`)) return;
+                      void deleteTableMut.mutateAsync(t.id).then(() =>
+                        toast.success(`${t.name} supprimée`)
+                      ).catch(() => toast.error("Impossible de supprimer cette table."));
+                    }}
+                    disabled={deleteTableMut.isPending}
+                    className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-destructive/80 text-white shadow-sm active:scale-95 disabled:opacity-50"
+                    aria-label="Supprimer la table"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               ))}
               {tables.length === 0 && (

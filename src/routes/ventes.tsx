@@ -11,6 +11,7 @@ import {
   getDrinksApi, getServersApi, getTablesApi, getCurrentDaySessionApi, recordSaleApi, getUsersApi,
 } from "@/lib/graphql/operations";
 import { METHOD_KEY } from "@/lib/graphql/adapters";
+import { useStore } from "@/lib/store";
 import type { TableItem } from "@/lib/store";
 
 export const Route = createFileRoute("/ventes")({
@@ -21,6 +22,7 @@ const methods = ["Espèces", "Mobile Money", "Crédit"] as const;
 
 function Ventes() {
   const qc = useQueryClient();
+  const { currentRole, currentUserName } = useStore();
   const { data: drinks = [] } = useQuery({ queryKey: ["drinks"], queryFn: () => getDrinksApi() });
   const { data: servers = [] } = useQuery({ queryKey: ["servers"], queryFn: getServersApi });
   const { data: tables = [] } = useQuery({ queryKey: ["tables"], queryFn: getTablesApi });
@@ -68,8 +70,12 @@ function Ventes() {
 
   const activeServers = servers.filter((s) => s.active);
   const activeGerants = users.filter((u) => u.active && u.role === "Gérant");
-  // Liste unifiée du personnel pouvant faire une vente
+  // Option "Moi" en tête de liste si l'utilisateur connecté est un gérant
+  const moiEntry = currentRole === "Gérant" && currentUserName
+    ? [{ id: "moi", name: "Moi", isGerant: true }]
+    : [];
   const allStaff = [
+    ...moiEntry,
     ...activeServers.map((s) => ({ id: s.id, name: s.name, isGerant: false })),
     ...activeGerants.map((g) => ({ id: g.id, name: g.name, isGerant: true })),
   ];
@@ -162,14 +168,14 @@ function Ventes() {
           onRemove={remove}
           onConfirm={async (tableName, serverName, method) => {
             try {
+              const resolvedName = serverName === "Moi" ? (currentUserName ?? serverName) : serverName;
               const staffMember = allStaff.find((s) => s.name === serverName);
               const table = tables.find((t) => t.name === tableName);
-              // Pour les gérants, serverId est null (pas dans la table servers)
               const serverId = staffMember?.isGerant ? undefined : staffMember?.id;
               await recordSaleMut.mutateAsync({
                 items: cartLines.map((l) => ({ drinkId: l.drink.id, quantity: l.qty })),
                 tableName,
-                serverName,
+                serverName: resolvedName,
                 tableId: table?.id,
                 serverId,
                 method: METHOD_KEY[method] ?? method,

@@ -34,7 +34,7 @@ function dateHeader(dateStr: string): string {
 function Journal() {
   const qc = useQueryClient();
   const [period, setPeriod] = useState<(typeof periods)[number]>("Jour");
-  const { establishment, currentRole, currentUserName } = useStore();
+  const { establishment, currentRole } = useStore();
   const isOwner = currentRole === "Propriétaire";
 
   const today = new Date().toISOString().slice(0, 10);
@@ -47,9 +47,8 @@ function Journal() {
   }, [period, today]);
 
   const { data: sales = [] } = useQuery({
-    queryKey: ["sales", isOwner ? null : currentUserName, period],
-    queryFn: () => getSalesApi(500, fromDate, today, isOwner ? undefined : currentUserName),
-    enabled: isOwner || !!currentUserName,
+    queryKey: ["sales", period],
+    queryFn: () => getSalesApi(500, fromDate, today),
   });
   const { data: drinks = [] } = useQuery({ queryKey: ["drinks"], queryFn: () => getDrinksApi() });
 
@@ -227,7 +226,7 @@ function Journal() {
             </div>
           ) : (
             <div className="rounded-2xl border border-border bg-card p-4 shadow-card">
-              <p className="text-xs text-muted-foreground">Mes ventes</p>
+              <p className="text-xs text-muted-foreground">Ventes</p>
               <p className="mt-0.5 font-display text-xl font-extrabold tabular-nums text-foreground">{activeSales.length}</p>
               <span className="mt-1 inline-block text-[11px] text-muted-foreground capitalize">{period === "Jour" ? "Aujourd'hui" : `Cette ${period.toLowerCase()}`}</span>
             </div>
